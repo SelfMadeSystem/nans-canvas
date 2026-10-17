@@ -19,6 +19,19 @@ export interface DrawContext<C extends ContextType> {
   elapsedTime: number;
   /** Active pointers, in canvas pixel coordinates (0,0 = top-left) */
   pointers: PointerInfo[];
+  /** Scrollable mode: how far the canvas has moved down its container (zero otherwise) */
+  scroll: Vector2;
+  /** Scrollable mode: scroll change since the previous frame (zero otherwise) */
+  scrollDelta: Vector2;
+}
+
+export interface CanvasEffectConfig<K extends keyof ContextById> {
+  contextId: K;
+  /**
+   * Keeps the canvas pinned to the viewport via JS (sticky-like, clamped to its container).
+   * The canvas must be `position: absolute` inside a positioned container.
+   */
+  scrollable?: boolean;
 }
 
 export interface PointerInfo {
@@ -43,13 +56,17 @@ type GraphicsHandler<K extends keyof ContextById> = {
   onPointerDown?: (pointer: PointerInfo) => void;
   onPointerUp?: (pointer: PointerInfo) => void;
   onPointerMove?: (pointer: PointerInfo) => void;
+  /** Scrollable mode: called before draw when the canvas moved relative to its container */
+  onScroll?: (scroll: Vector2, delta: Vector2) => void;
   cleanup?: () => void;
 };
 
 export function createCanvasEffect<K extends keyof ContextById, TOptions>(
-  contextId: K,
+  config: K | CanvasEffectConfig<K>,
   setup: (options: TOptions) => GraphicsHandler<K>,
 ): CanvasEffect<TOptions> {
+  const { contextId, scrollable = false } =
+    typeof config === "string" ? { contextId: config } : config;
   return {
     attachTo(canvas: HTMLCanvasElement, options: TOptions) {
       canvas.width = canvas.clientWidth * (window.devicePixelRatio || 1);
@@ -123,16 +140,45 @@ export function createCanvasEffect<K extends keyof ContextById, TOptions>(
       window.addEventListener("pointerup", handleUp);
       window.addEventListener("pointercancel", handleLeave);
 
+      const prevWillChange = canvas.style.willChange;
+      const prevTransform = canvas.style.transform;
+      if (scrollable) canvas.style.willChange = "transform";
+      let scrollY = 0;
+
+      const updateScroll = (): number => {
+        const container = (canvas.offsetParent ??
+          document.documentElement) as HTMLElement;
+        const containerRect = container.getBoundingClientRect();
+        // offsetTop/offsetHeight ignore transforms, giving the canvas's rest position
+        const restTop = canvas.offsetTop;
+        const maxY = Math.max(
+          0,
+          container.clientHeight - (restTop + canvas.offsetHeight),
+        );
+        const next = Math.min(Math.max(-containerRect.top, 0), maxY);
+        canvas.style.transform = `translateY(${next}px)`;
+        const delta = next - scrollY;
+        scrollY = next;
+        return delta;
+      };
+
       const render = (now: number) => {
         const elapsedTime = (now - startTime) / 1000;
         const deltaTime = (now - lastTime) / 1000;
         lastTime = now;
+
+        const scrollDeltaY = scrollable ? updateScroll() : 0;
+        const scroll = new Vector2(0, scrollY);
+        const scrollDelta = new Vector2(0, scrollDeltaY);
+        if (scrollDeltaY !== 0) effect.onScroll?.(scroll, scrollDelta);
 
         effect.draw({
           ctx,
           deltaTime,
           elapsedTime,
           pointers: [...pointers.values()],
+          scroll,
+          scrollDelta,
         });
 
         animationFrameId = requestAnimationFrame(render);
@@ -162,6 +208,8 @@ export function createCanvasEffect<K extends keyof ContextById, TOptions>(
         window.removeEventListener("pointerup", handleUp);
         window.removeEventListener("pointercancel", handleLeave);
         canvas.style.touchAction = prevTouchAction;
+        canvas.style.willChange = prevWillChange;
+        canvas.style.transform = prevTransform;
         effect.cleanup?.();
       };
     },
