@@ -57,7 +57,7 @@ export function createCanvasEffect<K extends keyof ContextById, TOptions>(
       const ctx = canvas.getContext(contextId) as ContextById[K];
       const effect = setup(options);
 
-      let animationFrameId: number;
+      let animationFrameId: number | undefined;
       let startTime = performance.now();
       let lastTime = startTime;
 
@@ -138,11 +138,24 @@ export function createCanvasEffect<K extends keyof ContextById, TOptions>(
         animationFrameId = requestAnimationFrame(render);
       };
 
-      animationFrameId = requestAnimationFrame(render);
+      const visibilityObserver = new IntersectionObserver((entries) => {
+        const visible = entries[entries.length - 1]!.isIntersecting;
+        if (visible && animationFrameId === undefined) {
+          // Skip the time spent hidden so deltaTime doesn't spike
+          lastTime = performance.now();
+          animationFrameId = requestAnimationFrame(render);
+        } else if (!visible && animationFrameId !== undefined) {
+          cancelAnimationFrame(animationFrameId);
+          animationFrameId = undefined;
+        }
+      });
+      visibilityObserver.observe(canvas);
 
       // Return a cleanup/detach method
       return () => {
-        cancelAnimationFrame(animationFrameId);
+        if (animationFrameId !== undefined)
+          cancelAnimationFrame(animationFrameId);
+        visibilityObserver.disconnect();
         observer.disconnect();
         canvas.removeEventListener("pointerdown", handleDown);
         window.removeEventListener("pointermove", handleMove);
