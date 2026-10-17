@@ -18,7 +18,7 @@ export interface DrawContext<C extends ContextType> {
   deltaTime: number;
   elapsedTime: number;
   /** Active pointers, in canvas pixel coordinates (0,0 = top-left) */
-  pointers: Vector2[];
+  pointers: PointerInfo[];
 }
 
 export interface PointerInfo {
@@ -26,6 +26,7 @@ export interface PointerInfo {
   position: Vector2;
   type: string;
   button: number;
+  buttons: number;
 }
 
 export type DrawContext2D = DrawContext<CanvasRenderingContext2D>;
@@ -87,6 +88,7 @@ export function createCanvasEffect<K extends keyof ContextById, TOptions>(
           position,
           type: e.pointerType,
           button: e.button,
+          buttons: e.buttons,
         };
       };
 
@@ -105,6 +107,7 @@ export function createCanvasEffect<K extends keyof ContextById, TOptions>(
         if (!pointers.has(e.pointerId)) return;
         const info = toInfo(e);
         if (e.pointerType !== "mouse") pointers.delete(e.pointerId);
+        else pointers.set(e.pointerId, info);
         effect.onPointerUp?.(info);
       };
       const handleLeave = (e: PointerEvent) => {
@@ -129,7 +132,7 @@ export function createCanvasEffect<K extends keyof ContextById, TOptions>(
           ctx,
           deltaTime,
           elapsedTime,
-          pointers: [...pointers.values()].map((p) => p.position),
+          pointers: [...pointers.values()],
         });
 
         animationFrameId = requestAnimationFrame(render);

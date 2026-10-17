@@ -60,12 +60,13 @@ export const myEffect = createCanvasEffect(
         ctx.fillStyle = "white";
         ctx.lineWidth = 2;
         ctx.beginPath();
-        pointers.forEach((p, i) => {
+        pointers.forEach(({ position: p }, i) => {
           if (i === 0) ctx.moveTo(p.x, p.y);
           else ctx.lineTo(p.x, p.y);
         });
         ctx.stroke();
-        for (const p of pointers) {
+        for (const { position: p, buttons } of pointers) {
+          if (buttons === 0) continue; // Skip pointers with no buttons pressed
           ctx.beginPath();
           ctx.arc(p.x, p.y, 14, 0, Math.PI * 2);
           ctx.fill();
