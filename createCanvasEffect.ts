@@ -92,7 +92,7 @@ export type CanvasEffect<TOptions> = {
   attachTo(canvas: HTMLCanvasElement, options: TOptions): () => void;
 };
 
-type GraphicsHandler<K extends keyof ContextById> = {
+export type GraphicsHandler<K extends keyof ContextById> = {
   /** Draw one frame. Called while the canvas is visible. */
   draw: (context: DrawContext<ContextById[K]>) => void;
   /** Called when a pointer press begins on the canvas. */

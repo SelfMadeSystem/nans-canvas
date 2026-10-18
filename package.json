@@ -3,12 +3,10 @@
   "version": "0.0.1",
   "module": "index.ts",
   "devDependencies": {
-    "@types/bun": "latest",
-    "@types/react": "^19.3.0"
+    "@types/bun": "latest"
   },
   "peerDependencies": {
-    "typescript": "^7",
-    "react": "^19.3.1"
+    "typescript": "^7"
   },
   "files": [
     "index.ts",

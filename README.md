@@ -57,39 +57,6 @@ effect.attachTo(canvas, {
 });
 ```
 
-React example:
-
-```typescript
-import effect from './path/to/your/effect';
-import ReactNan from 'nans-framework/react';
-
-const MyCanvasEffect: React.FC = () => {
-  return <ReactNan effect={effect} optionA={true} optionB={false} />;
-};
-
-export default MyCanvasEffect;
-```
-
-Svelte example:
-
-```html
-<script lang="ts">
-  import effect from './path/to/your/effect';
-  import { onMount } from 'svelte';
-
-  let canvas: HTMLCanvasElement;
-
-  onMount(() => {
-    effect.attachTo(canvas, {
-      optionA: true,
-      optionB: false,
-    });
-  });
-</script>
-
-<canvas bind:this={canvas}></canvas>
-```
-
 ## Canvas Effect API
 
 `createCanvasEffect` takes a rendering context ID (or a configuration object) and a setup callback. Setup receives the options passed to `attachTo` and the created rendering context, then returns a `draw` function plus any optional event handlers:
