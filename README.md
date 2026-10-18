@@ -21,6 +21,8 @@ npm install nans-canvas
 bun add nans-canvas
 ```
 
+The package supports both ESM `import` and CommonJS `require` for its root and subpath exports. The React adapter remains optional; install React if you import `nans-canvas/react`.
+
 ## Quick Start
 
 Create an effect by selecting a rendering context and returning a `draw` handler. Pass effect options when attaching it to a canvas:
