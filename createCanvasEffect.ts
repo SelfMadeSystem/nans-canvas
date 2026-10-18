@@ -28,9 +28,9 @@ export interface DrawContext<C extends ContextType> {
   /** Presses that began on this canvas and have not ended; positions may be outside the canvas. */
   pointersDown: PointerInfo[];
   /** Scrollable mode: how far the canvas has moved within its container; zero otherwise. */
-  scroll: Vector2;
+  scroll: CanvasCoordinates;
   /** Scrollable mode: movement since the previous frame on each axis; zero otherwise. */
-  scrollDelta: Vector2;
+  scrollDelta: CanvasCoordinates;
 }
 
 /** Canvas CSS and backing-store dimensions after sizing for device pixel ratio. */
@@ -45,6 +45,14 @@ export interface CanvasSize {
   readonly cssHeight: number;
   /** Device pixel ratio used to calculate the backing-store dimensions. */
   readonly pixelRatio: number;
+}
+
+/** A position or displacement in backing-store and CSS pixel coordinates. */
+export interface CanvasCoordinates {
+  /** Canvas backing-store pixel coordinates. */
+  pixels: Vector2;
+  /** CSS pixel coordinates or displacement. */
+  cssPixels: Vector2;
 }
 
 /** Configuration for creating an effect with a canvas rendering context. */
@@ -66,8 +74,8 @@ export interface CanvasEffectConfig<K extends keyof ContextById> {
 export interface PointerInfo {
   /** Browser pointer identifier. */
   id: number;
-  /** Position in canvas pixels, with the origin at the top-left. */
-  position: Vector2;
+  /** Position relative to the canvas, in backing-store and CSS pixels. */
+  position: CanvasCoordinates;
   /** Pointer device type, typically `mouse`, `pen`, or `touch`. */
   type: string;
   /** Button that changed, as defined by the Pointer Events API. */
@@ -106,7 +114,7 @@ export type GraphicsHandler<K extends keyof ContextById> = {
   /** Called after initial sizing and after the canvas backing store changes. */
   onResize?: (size: CanvasSize) => void;
   /** Scrollable mode: called before draw when the canvas moves within its container. */
-  onScroll?: (scroll: Vector2, delta: Vector2) => void;
+  onScroll?: (scroll: CanvasCoordinates, delta: CanvasCoordinates) => void;
   /** Called once when the effect is detached. */
   cleanup?: () => void;
 };
@@ -200,11 +208,22 @@ export function createCanvasEffect<K extends keyof ContextById, TOptions>(
       const allPointers = new Map<number, PointerInfo>();
       const pointersDown = new Map<number, PointerInfo>();
 
+      const toCanvasCoordinates = (
+        cssPixels: Vector2,
+        rect = canvas.getBoundingClientRect(),
+      ): CanvasCoordinates => ({
+        pixels: new Vector2(
+          rect.width === 0 ? 0 : cssPixels.x * (canvas.width / rect.width),
+          rect.height === 0 ? 0 : cssPixels.y * (canvas.height / rect.height),
+        ),
+        cssPixels,
+      });
+
       const toInfo = (e: PointerEvent): PointerInfo => {
         const rect = canvas.getBoundingClientRect();
-        const position = new Vector2(
-          (e.clientX - rect.left) * (canvas.width / rect.width),
-          (e.clientY - rect.top) * (canvas.height / rect.height),
+        const position = toCanvasCoordinates(
+          new Vector2(e.clientX - rect.left, e.clientY - rect.top),
+          rect,
         );
         return {
           id: e.pointerId,
@@ -284,7 +303,7 @@ export function createCanvasEffect<K extends keyof ContextById, TOptions>(
       let scrollX = 0;
       let scrollY = 0;
 
-      const updateScroll = (): Vector2 => {
+      const updateScroll = (): CanvasCoordinates => {
         const container = (canvas.offsetParent ??
           document.documentElement) as HTMLElement;
         const containerRect = container.getBoundingClientRect();
@@ -305,7 +324,7 @@ export function createCanvasEffect<K extends keyof ContextById, TOptions>(
         const delta = new Vector2(nextX - scrollX, nextY - scrollY);
         scrollX = nextX;
         scrollY = nextY;
-        return delta;
+        return toCanvasCoordinates(delta);
       };
 
       const drawFrame = (now: number) => {
@@ -313,9 +332,14 @@ export function createCanvasEffect<K extends keyof ContextById, TOptions>(
         const deltaTime = (now - lastTime) / 1000;
         lastTime = now;
 
-        const scrollDelta = scrollable ? updateScroll() : new Vector2(0, 0);
-        const scroll = new Vector2(scrollX, scrollY);
-        if (scrollDelta.x !== 0 || scrollDelta.y !== 0)
+        const scrollDelta = scrollable
+          ? updateScroll()
+          : toCanvasCoordinates(new Vector2(0, 0));
+        const scroll = toCanvasCoordinates(new Vector2(scrollX, scrollY));
+        if (
+          scrollDelta.cssPixels.x !== 0 ||
+          scrollDelta.cssPixels.y !== 0
+        )
           effect.onScroll?.(scroll, scrollDelta);
 
         effect.draw({

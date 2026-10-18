@@ -1,5 +1,9 @@
 import { expect, test } from "bun:test";
-import { createCanvasEffect, type CanvasSize } from "./createCanvasEffect.js";
+import {
+  createCanvasEffect,
+  type CanvasSize,
+  type PointerInfo,
+} from "./createCanvasEffect.js";
 
 test("sizes for device pixel ratio and restores resources on detach", () => {
   const previousWindow = Object.getOwnPropertyDescriptor(globalThis, "window");
@@ -83,6 +87,8 @@ test("sizes for device pixel ratio and restores resources on detach", () => {
 
   const canvasListeners = new Map<string, EventListenerOrEventListenerObject>();
   const containerRect = { left: -80, top: -120 };
+  let rectWidth = 100;
+  let rectHeight = 50;
   const container = {
     clientWidth: 300,
     clientHeight: 200,
@@ -95,8 +101,12 @@ test("sizes for device pixel ratio and restores resources on detach", () => {
   };
   const context = {} as CanvasRenderingContext2D;
   const canvas = {
-    clientWidth: 100,
-    clientHeight: 50,
+    get clientWidth() {
+      return rectWidth;
+    },
+    get clientHeight() {
+      return rectHeight;
+    },
     offsetLeft: 20,
     offsetTop: 10,
     offsetWidth: 100,
@@ -109,10 +119,10 @@ test("sizes for device pixel ratio and restores resources on detach", () => {
     getBoundingClientRect: () => ({
       left: 0,
       top: 0,
-      right: 100,
-      bottom: 50,
-      width: 100,
-      height: 50,
+      right: rectWidth,
+      bottom: rectHeight,
+      width: rectWidth,
+      height: rectHeight,
     }),
     addEventListener: (
       type: string,
@@ -123,10 +133,14 @@ test("sizes for device pixel ratio and restores resources on detach", () => {
 
   const sizes: CanvasSize[] = [];
   let cleanupCalls = 0;
+  let downPointer: PointerInfo | undefined;
 
   try {
     const effect = createCanvasEffect("2d", () => ({
       draw() {},
+      onPointerDown(pointer) {
+        downPointer = pointer;
+      },
       onResize(size) {
         sizes.push(size);
       },
@@ -147,6 +161,24 @@ test("sizes for device pixel ratio and restores resources on detach", () => {
       pixelRatio: 2,
     });
 
+    const pointerDown = canvasListeners.get("pointerdown") as (
+      event: PointerEvent,
+    ) => void;
+    pointerDown({
+      pointerId: 1,
+      clientX: 25,
+      clientY: 10,
+      pointerType: "mouse",
+      button: 0,
+      buttons: 1,
+    } as PointerEvent);
+    expect(downPointer?.position.pixels.x).toBe(50);
+    expect(downPointer?.position.pixels.y).toBe(20);
+    expect(downPointer?.position.cssPixels.x).toBe(25);
+    expect(downPointer?.position.cssPixels.y).toBe(10);
+
+    rectWidth = 120;
+    rectHeight = 60;
     resizeCallback?.(
       [
         {
@@ -177,26 +209,56 @@ test("sizes for device pixel ratio and restores resources on detach", () => {
     expect(cleanupCalls).toBe(1);
 
     const scrollFrames: {
-      scroll: { x: number; y: number };
-      delta: { x: number; y: number };
+      scroll: {
+        pixels: { x: number; y: number };
+        cssPixels: { x: number; y: number };
+      };
+      delta: {
+        pixels: { x: number; y: number };
+        cssPixels: { x: number; y: number };
+      };
     }[] = [];
     const scrollEvents: {
-      scroll: { x: number; y: number };
-      delta: { x: number; y: number };
+      scroll: {
+        pixels: { x: number; y: number };
+        cssPixels: { x: number; y: number };
+      };
+      delta: {
+        pixels: { x: number; y: number };
+        cssPixels: { x: number; y: number };
+      };
     }[] = [];
     const scrollEffect = createCanvasEffect(
       { contextId: "2d", scrollable: true },
       () => ({
         draw({ scroll, scrollDelta }) {
           scrollFrames.push({
-            scroll: { x: scroll.x, y: scroll.y },
-            delta: { x: scrollDelta.x, y: scrollDelta.y },
+            scroll: {
+              pixels: { x: scroll.pixels.x, y: scroll.pixels.y },
+              cssPixels: {
+                x: scroll.cssPixels.x,
+                y: scroll.cssPixels.y,
+              },
+            },
+            delta: {
+              pixels: { x: scrollDelta.pixels.x, y: scrollDelta.pixels.y },
+              cssPixels: {
+                x: scrollDelta.cssPixels.x,
+                y: scrollDelta.cssPixels.y,
+              },
+            },
           });
         },
         onScroll(scroll, delta) {
           scrollEvents.push({
-            scroll: { x: scroll.x, y: scroll.y },
-            delta: { x: delta.x, y: delta.y },
+            scroll: {
+              pixels: { x: scroll.pixels.x, y: scroll.pixels.y },
+              cssPixels: { x: scroll.cssPixels.x, y: scroll.cssPixels.y },
+            },
+            delta: {
+              pixels: { x: delta.pixels.x, y: delta.pixels.y },
+              cssPixels: { x: delta.cssPixels.x, y: delta.cssPixels.y },
+            },
           });
         },
       }),
@@ -209,8 +271,14 @@ test("sizes for device pixel ratio and restores resources on detach", () => {
     );
     pendingFrame?.(1000);
     expect(scrollFrames[0]).toEqual({
-      scroll: { x: 80, y: 120 },
-      delta: { x: 80, y: 120 },
+      scroll: {
+        pixels: { x: 160, y: 240 },
+        cssPixels: { x: 80, y: 120 },
+      },
+      delta: {
+        pixels: { x: 160, y: 240 },
+        cssPixels: { x: 80, y: 120 },
+      },
     });
     expect(scrollEvents[0]).toEqual(scrollFrames[0]);
     expect(style.transform).toBe("translate(80px, 120px)");
@@ -219,8 +287,14 @@ test("sizes for device pixel ratio and restores resources on detach", () => {
     containerRect.top = -500;
     pendingFrame?.(1016);
     expect(scrollFrames[1]).toEqual({
-      scroll: { x: 180, y: 140 },
-      delta: { x: 100, y: 20 },
+      scroll: {
+        pixels: { x: 360, y: 280 },
+        cssPixels: { x: 180, y: 140 },
+      },
+      delta: {
+        pixels: { x: 200, y: 40 },
+        cssPixels: { x: 100, y: 20 },
+      },
     });
     expect(scrollEvents[1]).toEqual(scrollFrames[1]);
     expect(style.transform).toBe("translate(180px, 140px)");

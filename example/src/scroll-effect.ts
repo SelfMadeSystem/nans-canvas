@@ -13,8 +13,7 @@ export const scrollEffect = createCanvasEffect(
 
     return {
       draw({ ctx, scroll, scrollDelta, pointersDown, elapsedTime }) {
-        const dpr = window.devicePixelRatio || 1;
-        scroll = scroll.mult(dpr);
+        const scrollPixels = scroll.pixels;
         const { width, height } = ctx.canvas;
         ctx.clearRect(0, 0, width, height);
 
@@ -29,27 +28,27 @@ export const scrollEffect = createCanvasEffect(
         }
 
         // Stateless world-anchored grid: derived directly from scroll
-        const spacing = 200 * dpr;
+        const spacing = 200;
         ctx.strokeStyle = "rgba(255,255,255,0.25)";
         ctx.fillStyle = "white";
-        ctx.font = `${12 * dpr}px sans-serif`;
+        ctx.font = `${12}px sans-serif`;
         ctx.lineWidth = 1;
-        const firstColumn = Math.floor(scroll.x / spacing);
+        const firstColumn = Math.floor(scrollPixels.x / spacing);
         for (
           let column = firstColumn;
-          column * spacing - scroll.x < width;
+          column * spacing - scrollPixels.x < width;
           column++
         ) {
-          const x = column * spacing - scroll.x;
+          const x = column * spacing - scrollPixels.x;
           ctx.beginPath();
           ctx.moveTo(x, 0);
           ctx.lineTo(x, height);
           ctx.stroke();
-          ctx.fillText(`${column * 200}px`, x + 4, 16 * dpr);
+          ctx.fillText(`${column * 200}px`, x + 4, 16);
         }
-        const first = Math.floor(scroll.y / spacing);
-        for (let k = first; k * spacing - scroll.y < height; k++) {
-          const y = k * spacing - scroll.y;
+        const first = Math.floor(scrollPixels.y / spacing);
+        for (let k = first; k * spacing - scrollPixels.y < height; k++) {
+          const y = k * spacing - scrollPixels.y;
           ctx.beginPath();
           ctx.moveTo(0, y);
           ctx.lineTo(width, y);
@@ -62,9 +61,9 @@ export const scrollEffect = createCanvasEffect(
         for (const p of particles) {
           ctx.beginPath();
           ctx.arc(
-            mod(p.x - scroll.x, width),
-            mod(p.y - scroll.y, height),
-            p.r * dpr,
+            mod(p.x - scrollPixels.x, width),
+            mod(p.y - scrollPixels.y, height),
+            p.r,
             0,
             Math.PI * 2,
           );
@@ -76,61 +75,63 @@ export const scrollEffect = createCanvasEffect(
         ctx.beginPath();
         ctx.arc(
           width / 2,
-          height / 2 + Math.sin(elapsedTime) * 40 * dpr,
-          14 * dpr,
+          height / 2 + Math.sin(elapsedTime) * 40,
+          14,
           0,
           Math.PI * 2,
         );
         ctx.fill();
 
         ctx.fillStyle = "white";
-        for (const { position: p } of pointersDown) {
+        for (const {
+          position: { pixels: p },
+        } of pointersDown) {
           ctx.beginPath();
-          ctx.arc(p.x, p.y, 14 * dpr, 0, Math.PI * 2);
+          ctx.arc(p.x, p.y, 14, 0, Math.PI * 2);
           ctx.fill();
         }
 
         // Mark the visible viewport in canvas coordinates.
         const rect = ctx.canvas.getBoundingClientRect();
-        const viewLeft = Math.max(0, -rect.left * dpr);
+        const scaleX = width / rect.width;
+        const scaleY = height / rect.height;
+        const viewLeft = Math.max(0, -rect.left * scaleX);
         const viewRight = Math.min(
           width,
-          (window.innerWidth - rect.left) * dpr,
+          (window.innerWidth - rect.left) * scaleX,
         );
-        const viewTop = Math.max(0, -rect.top * dpr);
+        const viewTop = Math.max(0, -rect.top * scaleY);
         const viewBottom = Math.min(
           height,
-          (window.innerHeight - rect.top) * dpr,
+          (window.innerHeight - rect.top) * scaleY,
         );
         ctx.strokeStyle = "red";
         ctx.fillStyle = "red";
-        ctx.lineWidth = 2 * dpr;
+        ctx.lineWidth = 2;
         ctx.strokeRect(
           viewLeft + ctx.lineWidth,
           viewTop + ctx.lineWidth,
           viewRight - viewLeft - 2 * ctx.lineWidth,
           viewBottom - viewTop - 2 * ctx.lineWidth,
         );
-        ctx.font = `${14 * dpr}px sans-serif`;
+        ctx.font = `${14}px sans-serif`;
         ctx.fillText(
           `viewport (${(-rect.left).toFixed(0)}px left, ${(-rect.top).toFixed(0)}px up from canvas origin)`,
-          viewLeft + 16 * dpr,
-          viewTop + 24 * dpr,
+          viewLeft + 16,
+          viewTop + 24,
         );
 
         ctx.fillStyle = "white";
-        ctx.font = `${16 * dpr}px sans-serif`;
+        ctx.font = `${16}px sans-serif`;
         ctx.fillText(
-          `scroll: ${scroll.x.toFixed(0)}, ${scroll.y.toFixed(0)}  delta: ${scrollDelta.x.toFixed(1)}, ${scrollDelta.y.toFixed(1)}  last: ${lastDelta.toFixed(1)}  calls: ${scrollEvents}`,
-          viewLeft + 16 * dpr,
-          viewTop + 48 * dpr,
+          `scroll CSS: ${scroll.cssPixels.x.toFixed(0)}, ${scroll.cssPixels.y.toFixed(0)}  delta CSS: ${scrollDelta.cssPixels.x.toFixed(1)}, ${scrollDelta.cssPixels.y.toFixed(1)}  last: ${lastDelta.toFixed(1)}  calls: ${scrollEvents}`,
+          viewLeft + 16,
+          viewTop + 48,
         );
       },
       onScroll(_scroll, delta) {
         scrollEvents++;
-        lastDelta = Math.hypot(delta.x, delta.y);
-        // for (const p of particles)
-        //   p.y -= delta.y * (window.devicePixelRatio || 1);
+        lastDelta = Math.hypot(delta.cssPixels.x, delta.cssPixels.y);
       },
       cleanup() {
         particles.length = 0;

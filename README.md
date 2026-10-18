@@ -77,7 +77,7 @@ These attributes are forwarded to `HTMLCanvasElement.getContext` and only apply 
 
 ### Drawing and input
 
-The draw context provides `deltaTime` in seconds since the previous frame and `elapsedTime` in seconds since attachment. Its `allPointers` array contains pointers currently over the canvas, including mouse and pen hover; `pointersDown` contains presses that began on the canvas and have not ended or been cancelled. Both arrays contain `PointerInfo` values with positions in canvas backing pixels, with `(0, 0)` at the top-left.
+The draw context provides `deltaTime` in seconds since the previous frame and `elapsedTime` in seconds since attachment. Its `allPointers` array contains pointers currently over the canvas, including mouse and pen hover; `pointersDown` contains presses that began on the canvas and have not ended or been cancelled. Both arrays contain `PointerInfo` values whose `position` has `pixels` (canvas backing-store coordinates) and `cssPixels` (CSS coordinates relative to the canvas's top-left).
 
 `onPointerMove` fires for pointers over the canvas and active drags that began on it. `onPointerUp` and `onPointerCancel` only fire for presses that began on the canvas. For example:
 
@@ -87,7 +87,7 @@ const effect = createCanvasEffect("2d", (_options: undefined) => ({
     ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
   },
   onPointerDown(pointer) {
-    console.log(pointer.position.x, pointer.position.y);
+    console.log(pointer.position.pixels, pointer.position.cssPixels);
   },
 }));
 ```
@@ -96,15 +96,15 @@ The draw loop runs while the canvas intersects the viewport and pauses while it 
 
 ### Scroll tracking
 
-Set `scrollable: true` to pin the canvas within its positioned container as the page scrolls. The canvas must be absolutely positioned inside that container. `scroll` and `scrollDelta` are `Vector2` values in layout pixels; both horizontal and vertical movement are tracked.
+Set `scrollable: true` to pin the canvas within its positioned container as the page scrolls. The canvas must be absolutely positioned inside that container. `scroll` and `scrollDelta` are `CanvasCoordinates` values: `pixels` are backing-store units for drawing, and `cssPixels` are layout units. Both horizontal and vertical movement are tracked.
 
 ```typescript
 const effect = createCanvasEffect(
   { contextId: "2d", scrollable: true, touchAction: "pan-y" },
   (_options: undefined) => ({
     draw({ ctx, scroll, scrollDelta }) {
-      // Use scroll.x / scroll.y to place content in the scrolling area.
-      // scrollDelta contains the movement since the previous frame.
+      // Use scroll.pixels for drawing and scroll.cssPixels for layout values.
+      // scrollDelta exposes movement in both coordinate spaces.
     },
     onScroll(scroll, delta) {
       // Called before draw when either axis changes.

@@ -60,12 +60,14 @@ export const myEffect = createCanvasEffect(
         ctx.fillStyle = "white";
         ctx.lineWidth = 2;
         ctx.beginPath();
-        allPointers.forEach(({ position: p }, i) => {
+        allPointers.forEach(({ position: { pixels: p } }, i) => {
           if (i === 0) ctx.moveTo(p.x, p.y);
           else ctx.lineTo(p.x, p.y);
         });
         ctx.stroke();
-        for (const { position: p } of pointersDown) {
+        for (const {
+          position: { pixels: p },
+        } of pointersDown) {
           ctx.beginPath();
           ctx.arc(p.x, p.y, 14, 0, Math.PI * 2);
           ctx.fill();
@@ -79,14 +81,28 @@ export const myEffect = createCanvasEffect(
         );
       },
       onPointerDown({ position }) {
-        ripples.push({ x: position.x, y: position.y, age: 0, color: "lime" });
+        ripples.push({
+          x: position.pixels.x,
+          y: position.pixels.y,
+          age: 0,
+          color: "lime",
+        });
       },
       onPointerUp({ position }) {
         releases++;
-        ripples.push({ x: position.x, y: position.y, age: 0, color: "red" });
+        ripples.push({
+          x: position.pixels.x,
+          y: position.pixels.y,
+          age: 0,
+          color: "red",
+        });
       },
       onPointerMove({ position }) {
-        trail.push({ x: position.x, y: position.y, age: 0 });
+        trail.push({
+          x: position.pixels.x,
+          y: position.pixels.y,
+          age: 0,
+        });
       },
       cleanup() {
         ripples.length = 0;

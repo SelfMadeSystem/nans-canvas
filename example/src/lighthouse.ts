@@ -162,10 +162,10 @@ export const lighthouse = createCanvasEffect("2d", () => {
       }
     },
     onPointerMove({ position }) {
-      pointer = position;
+      pointer = position.pixels;
     },
     onPointerDown({ position }) {
-      pointer = position;
+      pointer = position.pixels;
     },
     cleanup() {
       pointer = null;
