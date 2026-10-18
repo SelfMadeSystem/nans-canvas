@@ -8,8 +8,6 @@
 
 export const EPSILON = 1e-6;
 
-export type Vec2 = { x: number; y: number };
-
 /**
  * Modulo function that always returns a positive number
  * @param a The number to be modulated
@@ -73,7 +71,7 @@ export function randomBool(probability = 0.5): boolean {
 export function randomId(length = 8): string {
   return Array.from({ length }, () =>
     Math.floor(Math.random() * 16).toString(16),
-  ).join('');
+  ).join("");
 }
 
 /**
@@ -198,6 +196,54 @@ export function clamp(at: number, min: number, max: number): number {
  */
 export function lerp(a: number, b: number, t: number): number {
   return a + (b - a) * t;
+}
+
+/**
+ * Inverse linear interpolation between two numbers
+ * @param a The first number
+ * @param b The second number
+ * @param value The value to interpolate
+ * @returns The interpolation factor between 0 and 1
+ * @author SelfMadeSystem (Shoghi Simon) 2026-10-18
+ */
+export function inverseLerp(a: number, b: number, value: number): number {
+  if (a !== b) {
+    return (value - a) / (b - a);
+  }
+  return 0;
+}
+
+/**
+ * Maps a number from one range to another
+ * @param value The number to map
+ * @param inMin The minimum of the input range
+ * @param inMax The maximum of the input range
+ * @param outMin The minimum of the output range
+ * @param outMax The maximum of the output range
+ * @returns The mapped number
+ * @author SelfMadeSystem (Shoghi Simon) 2026-10-18
+ */
+export function mapRange(
+  value: number,
+  inMin: number,
+  inMax: number,
+  outMin: number,
+  outMax: number,
+): number {
+  return ((value - inMin) * (outMax - outMin)) / (inMax - inMin) + outMin;
+}
+
+/**
+ * Smoothly interpolates between two numbers using a given factor
+ * @param a The first number
+ * @param b The second number
+ * @param factor The interpolation factor between 0 and 1
+ * @returns The interpolated number
+ * @author SelfMadeSystem (Shoghi Simon) 2026-10-18
+ */
+export function smoothStep(a: number, b: number, factor: number): number {
+  const t = clamp(factor, 0, 1);
+  return lerp(a, b, t * t * (3 - 2 * t));
 }
 
 /**

@@ -179,6 +179,11 @@ export class Vector2 {
     return this.setLength(max);
   }
 
+  minLength(min: number): Vector2 {
+    if (this.lenSq() >= min * min) return this;
+    return this.setLength(min);
+  }
+
   angle(): number {
     return Math.atan2(this.y, this.x);
   }
@@ -255,6 +260,10 @@ export class Vector2 {
 
   clamp(min: VecLike, max: VecLike): Vector2 {
     return this.min(max).max(min);
+  }
+
+  clampLength(min: number, max: number): Vector2 {
+    return this.maxLength(max).minLength(min);
   }
 
   clone(): Vector2 {
