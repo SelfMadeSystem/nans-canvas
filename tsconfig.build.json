@@ -11,5 +11,5 @@
     "rootDir": ".",
     "types": []
   },
-  "include": ["index.ts", "createCanvasEffect.ts", "utils/**/*.ts"]
+  "include": ["index.ts", "react.tsx", "createCanvasEffect.ts", "utils/**/*.ts"]
 }

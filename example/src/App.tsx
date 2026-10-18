@@ -1,6 +1,6 @@
 import "./index.css";
 
-import { CanvasEffect } from "./react";
+import { CanvasEffect } from "nans-canvas/react";
 import { myEffect } from "./my-effect";
 import { lighthouse } from "./lighthouse";
 import { scrollEffect } from "./scroll-effect";
@@ -22,7 +22,7 @@ export function App() {
       /> */}
       <CanvasEffect
         effect={myEffect}
-        color="deepskyblue"
+        options={{ color: "deepskyblue" }}
         style={{ width: "100%", height: 400, display: "block" }}
       />
       <CanvasEffect
@@ -41,7 +41,7 @@ export function App() {
       >
         <CanvasEffect
           effect={scrollEffect}
-          color="deepskyblue"
+          options={{ color: "deepskyblue" }}
           style={{
             position: "absolute",
             width: "120vw",
@@ -63,7 +63,7 @@ export function App() {
       >
         <CanvasEffect
           effect={scrollEffect}
-          color="deepskyblue"
+          options={{ color: "deepskyblue" }}
           style={{
             position: "absolute",
             width: "100%",

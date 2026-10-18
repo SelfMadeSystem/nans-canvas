@@ -1,89 +1,63 @@
 # Nans Canvas
 
-A minimal, framework-agnostic library for building and distributing fancy canvas-based effects, colloquially known as "nans" (shenanigans, from [Shoghi Simon's Silly Shenanigans](https://shenanigans.shoghisimon.ca)).
+A minimal, framework-agnostic library for building and sharing canvas effects, colloquially known as "nans" (shenanigans, from [Shoghi Simon's Silly Shenanigans](https://shenanigans.shoghisimon.ca)).
 
-## Objectives
-
-- Framework-agnostic: Works with any front-end framework or vanilla JavaScript.
-- Canvas-based effects: Easily create and distribute fancy visual effects.
-- Minimal and lightweight: Focuses on providing the core functionality without unnecessary bloat.
+It handles canvas sizing, animation timing, visibility, and pointer input while leaving the effect itself in your hands.
 
 ## Features
 
-- Simple canvas setup:
-  - Automatically handles canvas resizing with `ResizeObserver`
-  - Supports high-DPI displays via `window.devicePixelRatio`
-  - Rendering loop for continuous updates
-- Interactive capabilities:
-  - Handle mouse, pen, and touch input through the Pointer Events API.
-- Scroll-based effects:
-  - Track horizontal and vertical page scrolling without making the canvas itself as large as the content.
+- 2D, WebGL, and WebGL 2 rendering contexts
+- High-DPI sizing and responsive resizing with `ResizeObserver`
+- Animation pauses while the canvas is outside the viewport
+- Mouse, pen, and touch input through Pointer Events
+- Optional horizontal and vertical scroll tracking
+- Framework-agnostic core, with an optional React adapter
 
-## Getting Started
-
-To get started with Nans Canvas, follow these steps:
-
-1. Install the library via your package manager of choice:
+## Installation
 
 ```bash
-bun i nans-canvas
+npm install nans-canvas
+# or
+bun add nans-canvas
 ```
 
-2. Import and use the library in your project:
+## Quick Start
+
+Create an effect by selecting a rendering context and returning a `draw` handler. Pass effect options when attaching it to a canvas:
 
 ```typescript
-import { createCanvasEffect } from 'nans-canvas';
+import { createCanvasEffect } from "nans-canvas";
 
-const effect = createCanvasEffect("2d", ({ optionA, optionB }) => ({
-  draw: ({ ctx, deltaTime, elapsedTime }) => {
-    // Your drawing logic here
-  },
-}));
-
-export default effect;
-```
-
-3. Use the exported effect in your application:
-
-Vanilla JavaScript example:
-
-```typescript
-import effect from './path/to/your/effect';
-
-const canvas = document.getElementById('myCanvas') as HTMLCanvasElement;
-effect.attachTo(canvas, {
-  optionA: true,
-  optionB: false,
-});
-```
-
-## Canvas Effect API
-
-`createCanvasEffect` takes a rendering context ID (or a configuration object) and a setup callback. Setup receives the options passed to `attachTo` and the created rendering context, then returns a `draw` function plus any optional event handlers:
-
-```typescript
 type Options = { color: string };
 
 const effect = createCanvasEffect("2d", ({ color }: Options) => ({
-  draw({ ctx, deltaTime, elapsedTime, allPointers, pointersDown }) {
-    ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+  draw({ ctx, elapsedTime }) {
+    const { width, height } = ctx.canvas;
+    ctx.clearRect(0, 0, width, height);
     ctx.fillStyle = color;
-    ctx.fillRect(0, 0, 40, 40);
-    // Use deltaTime and elapsedTime for time-based animation.
-    // allPointers includes hover positions; pointersDown tracks active presses.
-  },
-  onPointerDown(pointer) {
-    console.log(pointer.position.x, pointer.position.y);
-  },
-  cleanup() {
-    // Release resources created by setup, if needed.
+    ctx.beginPath();
+    ctx.arc(width / 2, height / 2, 20 + Math.sin(elapsedTime) * 8, 0, Math.PI * 2);
+    ctx.fill();
   },
 }));
+
+const canvas = document.querySelector<HTMLCanvasElement>("#canvas");
+if (!canvas) throw new Error("Canvas element not found");
+
+const detach = effect.attachTo(canvas, { color: "deepskyblue" });
 ```
 
-Supported context IDs are `"2d"`, `"webgl"`, and `"webgl2"`. The context type in `draw` follows the selected ID. The canvas is sized for the device pixel ratio and resized with `ResizeObserver`. Its animation loop runs while the canvas intersects the viewport and pauses while it is not visible.
+Call `detach()` when the effect is no longer needed. See [Lifecycle](#lifecycle) for cleanup details.
 
-Pass `contextAttributes` in the configuration object to customize 2D or WebGL context creation:
+## Core API
+
+`createCanvasEffect` accepts a context ID (or configuration object) and a setup callback. Setup runs once per attachment with the options passed to `attachTo` and the selected rendering context. It returns a `draw` handler and any optional input, resize, scroll, or cleanup handlers.
+
+### Contexts and sizing
+
+Supported context IDs are `"2d"`, `"webgl"`, and `"webgl2"`. The context type in `draw` follows the selected ID. The canvas backing store is sized for `window.devicePixelRatio` and resized with `ResizeObserver`.
+
+Pass `contextAttributes` to customize the initial context creation:
 
 ```typescript
 const effect = createCanvasEffect(
@@ -97,32 +71,90 @@ const webglEffect = createCanvasEffect(
 );
 ```
 
-The attributes are forwarded to `HTMLCanvasElement.getContext` and only apply when the context is first created on that canvas.
+These attributes are forwarded to `HTMLCanvasElement.getContext` and only apply when the context is first created on that canvas.
 
-`onResize` runs after initial sizing and after the backing store changes. Its `CanvasSize` argument includes backing-store `width` and `height` in pixels, CSS `cssWidth` and `cssHeight`, and the `pixelRatio`. For WebGL, update the viewport in this callback, for example `gl.viewport(0, 0, width, height)`.
+`onResize` runs after initial sizing and whenever the backing store changes. Its `CanvasSize` value includes backing-store `width` and `height`, CSS `cssWidth` and `cssHeight`, and `pixelRatio`. For WebGL, update the viewport in this callback, for example `gl.viewport(0, 0, width, height)`.
 
-The draw context provides `deltaTime` (seconds since the previous frame), `elapsedTime` (seconds since attachment), `allPointers`, and `pointersDown`. `allPointers` contains pointers currently over the canvas, including mouse or pen hover; it does not track pointers elsewhere on the page. `pointersDown` contains presses that began on the canvas and have not ended or been cancelled, including while dragged outside it. Pointer positions use canvas backing pixels with `(0, 0)` at the top-left. `onPointerMove` fires for pointers over the canvas and for active canvas-originated drags; `onPointerUp` and `onPointerCancel` only fire for presses that began on the canvas.
+### Drawing and input
 
-To enable scroll tracking, pass a configuration object. The canvas must be absolutely positioned inside a positioned container:
+The draw context provides `deltaTime` in seconds since the previous frame and `elapsedTime` in seconds since attachment. Its `allPointers` array contains pointers currently over the canvas, including mouse and pen hover; `pointersDown` contains presses that began on the canvas and have not ended or been cancelled. Both arrays contain `PointerInfo` values with positions in canvas backing pixels, with `(0, 0)` at the top-left.
+
+`onPointerMove` fires for pointers over the canvas and active drags that began on it. `onPointerUp` and `onPointerCancel` only fire for presses that began on the canvas. For example:
+
+```typescript
+const effect = createCanvasEffect("2d", (_options: undefined) => ({
+  draw({ ctx }) {
+    ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+  },
+  onPointerDown(pointer) {
+    console.log(pointer.position.x, pointer.position.y);
+  },
+}));
+```
+
+The draw loop runs while the canvas intersects the viewport and pauses while it is not visible.
+
+### Scroll tracking
+
+Set `scrollable: true` to pin the canvas within its positioned container as the page scrolls. The canvas must be absolutely positioned inside that container. `scroll` and `scrollDelta` are `Vector2` values in layout pixels; both horizontal and vertical movement are tracked.
 
 ```typescript
 const effect = createCanvasEffect(
   { contextId: "2d", scrollable: true, touchAction: "pan-y" },
-  (options: Options) => ({
+  (_options: undefined) => ({
     draw({ ctx, scroll, scrollDelta }) {
-      // scroll and scrollDelta are Vector2 values in layout pixels on both axes.
+      // Use scroll.x / scroll.y to place content in the scrolling area.
+      // scrollDelta contains the movement since the previous frame.
     },
     onScroll(scroll, delta) {
-      // Called before draw when the canvas moves within its container.
+      // Called before draw when either axis changes.
     },
   }),
 );
 ```
 
-`attachTo(canvas, options)` returns a detach function. Call it when the effect is no longer needed; it stops rendering, removes listeners and observers, restores the canvas styles, and invokes `cleanup` if provided.
+`touchAction` sets the canvas CSS `touch-action` value while attached. It defaults to `"none"`; use a value such as `"pan-y"` or `"auto"` to allow browser touch gestures. The previous inline value is restored on detach.
 
-`touchAction` controls the CSS `touch-action` value while attached. It defaults to `"none"`; set it to a value such as `"pan-y"` or `"auto"` to allow browser touch gestures. The previous inline value is restored when detached.
+### Lifecycle
+
+`attachTo(canvas, options)` returns a detach function. Calling it stops rendering, removes event listeners and observers, restores the canvas styles, and invokes `cleanup` if provided. Use `cleanup` to release resources created during setup, such as WebGL programs:
+
+```typescript
+const effect = createCanvasEffect("2d", (_options: undefined) => ({
+  draw() {},
+  cleanup() {
+    // Release resources created by setup.
+  },
+}));
+```
+
+## React
+
+Import the optional adapter from `nans-canvas/react`. React is an optional peer dependency, so projects that only import `nans-canvas` do not need React installed.
+
+```tsx
+import { useMemo } from "react";
+import { CanvasEffect } from "nans-canvas/react";
+import { myEffect } from "./my-effect";
+
+function EffectCanvas({ color }: { color: string }) {
+  const options = useMemo(() => ({ color }), [color]);
+
+  return (
+    <CanvasEffect
+      effect={myEffect}
+      options={options}
+      aria-label="Animated canvas effect"
+      style={{ width: "100%", height: 320 }}
+    />
+  );
+}
+```
+
+`CanvasEffect` renders a canvas, accepts standard canvas props, and attaches the effect in an effect hook. Its default style is `display: block` with `width` and `height` set to `100%`; supplied styles override those defaults. The `options` prop is passed only to the canvas effect, not to the DOM element. Changing the `effect` or `options` reference detaches and reattaches the effect, so keep `options` stable with `useMemo` when its values have not changed.
+
+For custom canvas markup, `useCanvasEffect(canvasRef, effect, options)` attaches the effect to the canvas referenced by `canvasRef` and cleans it up when the component unmounts or dependencies change.
 
 ## License
 
-This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
+MIT. See [LICENSE](LICENSE) for details.
