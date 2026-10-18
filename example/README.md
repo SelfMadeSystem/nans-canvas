@@ -1,21 +1,20 @@
-# bun-react-tailwind-template
+# nans-framework example
 
-To install dependencies:
-
-```bash
-bun install
-```
-
-To start a development server:
+Install dependencies with npm:
 
 ```bash
-bun dev
+npm install
 ```
 
-To run for production:
+Start the Vite development server:
 
 ```bash
-bun start
+npm run dev
 ```
 
-This project was created using `bun init` in bun v1.4.2. [Bun](https://bun.com) is a fast all-in-one JavaScript runtime.
+Build and preview the production bundle:
+
+```bash
+npm run build
+npm run preview
+```

@@ -1,4 +1,4 @@
-import type { CanvasEffect } from "nans-framework/createCanvasEffect";
+import type { CanvasEffect } from "nans-framework";
 import React, { useRef, useEffect } from "react";
 
 export function CanvasEffect<TOptions>({
