@@ -1,5 +1,5 @@
 {
-  "name": "nans-framework-example",
+  "name": "nans-canvas-example",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -9,7 +9,7 @@
     "preview": "vite preview --host 0.0.0.0"
   },
   "dependencies": {
-    "nans-framework": "..",
+    "nans-canvas": "..",
     "react": "^19",
     "react-dom": "^19"
   },

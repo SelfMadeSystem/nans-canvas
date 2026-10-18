@@ -1,5 +1,5 @@
-import { createCanvasEffect } from "nans-framework";
-import { mod } from "nans-framework/utils/mathUtils";
+import { createCanvasEffect } from "nans-canvas";
+import { mod } from "nans-canvas/utils/mathUtils";
 
 type Particle = { x: number; y: number; r: number };
 

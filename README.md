@@ -1,6 +1,6 @@
-# nans-framework
+# Nans Canvas
 
-A minimal framework for building distributable fancy canvas-based effects in a framework-agnostic way, colloquially known as "nans" (shenanigans, from [Shoghi Simon's Silly Shenanigans](https://shenanigans.shoghisimon.ca)).
+A minimal, framework-agnostic library for building and distributing fancy canvas-based effects, colloquially known as "nans" (shenanigans, from [Shoghi Simon's Silly Shenanigans](https://shenanigans.shoghisimon.ca)).
 
 ## Objectives
 
@@ -21,18 +21,18 @@ A minimal framework for building distributable fancy canvas-based effects in a f
 
 ## Getting Started
 
-To get started with the nans framework, follow these steps:
+To get started with Nans Canvas, follow these steps:
 
-1. Install the framework via your package manager of choice:
+1. Install the library via your package manager of choice:
 
 ```bash
-bun i nans-framework
+bun i nans-canvas
 ```
 
-2. Import and use the framework in your project:
+2. Import and use the library in your project:
 
 ```typescript
-import { createCanvasEffect } from 'nans-framework';
+import { createCanvasEffect } from 'nans-canvas';
 
 const effect = createCanvasEffect("2d", ({ optionA, optionB }) => ({
   draw: ({ ctx, deltaTime, elapsedTime }) => {

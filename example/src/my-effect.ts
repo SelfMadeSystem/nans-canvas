@@ -1,4 +1,4 @@
-import { createCanvasEffect } from "nans-framework";
+import { createCanvasEffect } from "nans-canvas";
 
 type Ripple = { x: number; y: number; age: number; color: string };
 

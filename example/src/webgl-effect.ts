@@ -1,4 +1,4 @@
-import { createCanvasEffect } from "nans-framework";
+import { createCanvasEffect } from "nans-canvas";
 
 const vertexSource = /*glsl*/ `#version 300 es
 const vec2 positions[3] = vec2[3](

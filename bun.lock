@@ -3,7 +3,7 @@
   "configVersion": 1,
   "workspaces": {
     "": {
-      "name": "nans-framework",
+      "name": "nans-canvas",
       "devDependencies": {
         "@types/bun": "latest",
         "typescript": "^7.0.2",

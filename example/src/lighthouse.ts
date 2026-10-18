@@ -1,5 +1,5 @@
-import { createCanvasEffect } from "nans-framework";
-import { Vector2 } from "nans-framework/utils/vec";
+import { createCanvasEffect } from "nans-canvas";
+import { Vector2 } from "nans-canvas/utils/vec";
 
 const characters = " .-:=+*#%@".split("");
 
