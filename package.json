@@ -1,5 +1,6 @@
 {
   "name": "nans-framework",
+  "version": "0.0.1",
   "module": "index.ts",
   "devDependencies": {
     "@types/bun": "latest",
@@ -11,8 +12,8 @@
   },
   "files": [
     "index.ts",
-    "utils/",
-    "react.tsx"
+    "createCanvasEffect.ts",
+    "utils/"
   ],
   "type": "module"
 }

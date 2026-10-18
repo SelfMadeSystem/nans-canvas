@@ -3,21 +3,18 @@ import { Vector2 } from "./utils/vec";
 type ContextType =
   | CanvasRenderingContext2D
   | WebGLRenderingContext
-  | WebGL2RenderingContext
-  | GPUCanvasContext;
+  | WebGL2RenderingContext;
 
 interface ContextById {
   "2d": CanvasRenderingContext2D;
   webgl: WebGLRenderingContext;
   webgl2: WebGL2RenderingContext;
-  webgpu: GPUCanvasContext;
 }
 
 type ContextAttributesById = {
   "2d": CanvasRenderingContext2DSettings;
   webgl: WebGLContextAttributes;
   webgl2: WebGLContextAttributes;
-  webgpu: never;
 };
 
 export interface DrawContext<C extends ContextType> {
@@ -36,11 +33,25 @@ export interface DrawContext<C extends ContextType> {
   scrollDelta: Vector2;
 }
 
+/** Canvas CSS and backing-store dimensions after sizing for device pixel ratio. */
+export interface CanvasSize {
+  /** Backing-store width in pixels. */
+  readonly width: number;
+  /** Backing-store height in pixels. */
+  readonly height: number;
+  /** CSS content width in pixels. */
+  readonly cssWidth: number;
+  /** CSS content height in pixels. */
+  readonly cssHeight: number;
+  /** Device pixel ratio used to calculate the backing-store dimensions. */
+  readonly pixelRatio: number;
+}
+
 /** Configuration for creating an effect with a canvas rendering context. */
 export interface CanvasEffectConfig<K extends keyof ContextById> {
   /** Canvas context to request. */
   contextId: K;
-  /** Options passed to `getContext`; unavailable for WebGPU. */
+  /** Options passed to `getContext`. */
   contextAttributes?: ContextAttributesById[K];
   /**
    * Keeps the canvas pinned to the viewport while scrolling, clamped to its container.
@@ -71,8 +82,6 @@ export type DrawContext2D = DrawContext<CanvasRenderingContext2D>;
 export type DrawContextWebGL = DrawContext<WebGLRenderingContext>;
 /** Draw context for a WebGL 2 canvas. */
 export type DrawContextWebGL2 = DrawContext<WebGL2RenderingContext>;
-/** Draw context for a WebGPU canvas. */
-export type DrawContextWebGPU = DrawContext<GPUCanvasContext>;
 
 /** An effect that can be attached to a canvas and later detached. */
 export type CanvasEffect<TOptions> = {
@@ -94,6 +103,8 @@ type GraphicsHandler<K extends keyof ContextById> = {
   onPointerCancel?: (pointer: PointerInfo) => void;
   /** Called for pointers over the canvas and active presses dragged outside it. */
   onPointerMove?: (pointer: PointerInfo) => void;
+  /** Called after initial sizing and after the canvas backing store changes. */
+  onResize?: (size: CanvasSize) => void;
   /** Scrollable mode: called before draw when the canvas moves within its container. */
   onScroll?: (scroll: Vector2, delta: Vector2) => void;
   /** Called once when the effect is detached. */
@@ -103,16 +114,16 @@ type GraphicsHandler<K extends keyof ContextById> = {
 /**
  * Create a reusable canvas effect.
  *
- * The setup callback runs once per attachment and returns drawing and optional input
- * handlers. The canvas is resized for device pixel ratio, and its draw loop pauses
- * while it is outside the viewport.
+ * The setup callback runs once per attachment, receives the selected rendering context,
+ * and returns drawing and optional input handlers. The canvas is resized for device
+ * pixel ratio, and its draw loop pauses while it is outside the viewport.
  *
  * @param config Canvas context ID, or context ID plus optional scroll behavior.
- * @param setup Creates the handlers for an attachment from its options.
+ * @param setup Creates the handlers from the options and rendering context.
  */
 export function createCanvasEffect<K extends keyof ContextById, TOptions>(
   config: K | CanvasEffectConfig<K>,
-  setup: (options: TOptions) => GraphicsHandler<K>,
+  setup: (options: TOptions, ctx: ContextById[K]) => GraphicsHandler<K>,
 ): CanvasEffect<TOptions> {
   const {
     contextId,
@@ -122,32 +133,77 @@ export function createCanvasEffect<K extends keyof ContextById, TOptions>(
   } = typeof config === "string" ? { contextId: config } : config;
   return {
     attachTo(canvas: HTMLCanvasElement, options: TOptions) {
-      canvas.width = canvas.clientWidth * (window.devicePixelRatio || 1);
-      canvas.height = canvas.clientHeight * (window.devicePixelRatio || 1);
-      const ctx = (
-        contextId === "webgpu"
-          ? canvas.getContext("webgpu")
-          : canvas.getContext(contextId, contextAttributes)
+      let cssWidth = canvas.clientWidth;
+      let cssHeight = canvas.clientHeight;
+      let pixelRatio = window.devicePixelRatio || 1;
+      canvas.width = Math.round(cssWidth * pixelRatio);
+      canvas.height = Math.round(cssHeight * pixelRatio);
+      const ctx = canvas.getContext(
+        contextId,
+        contextAttributes as ContextAttributesById[K],
       ) as ContextById[K];
-      const effect = setup(options);
+      if (!ctx) throw new Error(`Unable to create ${contextId} canvas context`);
+      const effect = setup(options, ctx);
+      let canvasSize: CanvasSize = {
+        width: canvas.width,
+        height: canvas.height,
+        cssWidth,
+        cssHeight,
+        pixelRatio,
+      };
+      effect.onResize?.(canvasSize);
+
+      const resizeCanvas = (nextCssWidth: number, nextCssHeight: number) => {
+        const nextPixelRatio = window.devicePixelRatio || 1;
+        const width = Math.round(nextCssWidth * nextPixelRatio);
+        const height = Math.round(nextCssHeight * nextPixelRatio);
+        if (
+          canvasSize.width === width &&
+          canvasSize.height === height &&
+          canvasSize.cssWidth === nextCssWidth &&
+          canvasSize.cssHeight === nextCssHeight &&
+          canvasSize.pixelRatio === nextPixelRatio
+        )
+          return;
+
+        if (canvas.width !== width) canvas.width = width;
+        if (canvas.height !== height) canvas.height = height;
+        canvasSize = {
+          width,
+          height,
+          cssWidth: nextCssWidth,
+          cssHeight: nextCssHeight,
+          pixelRatio: nextPixelRatio,
+        };
+        effect.onResize?.(canvasSize);
+      };
 
       let animationFrameId: number | undefined;
       let startTime = performance.now();
       let lastTime = startTime;
 
+      let resizeFrameId: number | undefined;
+      let pendingCssSize: { width: number; height: number } | undefined;
+      const scheduleResize = (width: number, height: number) => {
+        pendingCssSize = { width, height };
+        if (resizeFrameId !== undefined) return;
+        resizeFrameId = requestAnimationFrame(() => {
+          resizeFrameId = undefined;
+          const size = pendingCssSize;
+          pendingCssSize = undefined;
+          if (size) resizeCanvas(size.width, size.height);
+        });
+      };
+
       const observer = new ResizeObserver((entries) => {
         const { width, height } = entries[entries.length - 1]!.contentRect;
-        const dpr = window.devicePixelRatio || 1;
-        const w = Math.round(width * dpr);
-        const h = Math.round(height * dpr);
-        if (canvas.width === w && canvas.height === h) return;
-        // Deferred so the layout change from resizing doesn't re-trigger this callback in the same frame
-        requestAnimationFrame(() => {
-          canvas.width = w;
-          canvas.height = h;
-        });
+        cssWidth = width;
+        cssHeight = height;
+        scheduleResize(width, height);
       });
       observer.observe(canvas);
+      const handleWindowResize = () => scheduleResize(cssWidth, cssHeight);
+      window.addEventListener("resize", handleWindowResize);
 
       const allPointers = new Map<number, PointerInfo>();
       const pointersDown = new Map<number, PointerInfo>();
@@ -294,6 +350,8 @@ export function createCanvasEffect<K extends keyof ContextById, TOptions>(
           cancelAnimationFrame(animationFrameId);
         visibilityObserver.disconnect();
         observer.disconnect();
+        window.removeEventListener("resize", handleWindowResize);
+        if (resizeFrameId !== undefined) cancelAnimationFrame(resizeFrameId);
         canvas.removeEventListener("pointerenter", handleEnter);
         canvas.removeEventListener("pointerleave", handleLeave);
         canvas.removeEventListener("pointerdown", handleDown);

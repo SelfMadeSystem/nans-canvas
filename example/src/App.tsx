@@ -4,6 +4,7 @@ import { CanvasEffect } from "./react";
 import { myEffect } from "./my-effect";
 import { lighthouse } from "./lighthouse";
 import { scrollEffect } from "./scroll-effect";
+import { webglEffect } from "./webgl-effect";
 
 export function App() {
   return (
@@ -23,6 +24,10 @@ export function App() {
         effect={myEffect}
         color="deepskyblue"
         style={{ width: "100%", height: 400, display: "block" }}
+      />
+      <CanvasEffect
+        effect={webglEffect}
+        style={{ width: "100%", height: 320, display: "block" }}
       />
       <div
         className="mt-8"

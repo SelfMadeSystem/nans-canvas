@@ -92,7 +92,7 @@ Svelte example:
 
 ## Canvas Effect API
 
-`createCanvasEffect` takes a rendering context ID (or a configuration object) and a setup callback. The setup callback receives the options passed to `attachTo` and returns a `draw` function plus any optional event handlers:
+`createCanvasEffect` takes a rendering context ID (or a configuration object) and a setup callback. Setup receives the options passed to `attachTo` and the created rendering context, then returns a `draw` function plus any optional event handlers:
 
 ```typescript
 type Options = { color: string };
@@ -114,7 +114,7 @@ const effect = createCanvasEffect("2d", ({ color }: Options) => ({
 }));
 ```
 
-Supported context IDs are `"2d"`, `"webgl"`, `"webgl2"`, and `"webgpu"`. The context type in `draw` follows the selected ID. The canvas is sized for the device pixel ratio and resized with `ResizeObserver`. Its animation loop runs while the canvas intersects the viewport and pauses while it is not visible.
+Supported context IDs are `"2d"`, `"webgl"`, and `"webgl2"`. The context type in `draw` follows the selected ID. The canvas is sized for the device pixel ratio and resized with `ResizeObserver`. Its animation loop runs while the canvas intersects the viewport and pauses while it is not visible.
 
 Pass `contextAttributes` in the configuration object to customize 2D or WebGL context creation:
 
@@ -130,7 +130,9 @@ const webglEffect = createCanvasEffect(
 );
 ```
 
-The attributes are forwarded to `HTMLCanvasElement.getContext` and only apply when the context is first created on that canvas. WebGPU does not accept `getContext` attributes; configure its `GPUCanvasContext` using the WebGPU API instead.
+The attributes are forwarded to `HTMLCanvasElement.getContext` and only apply when the context is first created on that canvas.
+
+`onResize` runs after initial sizing and after the backing store changes. Its `CanvasSize` argument includes backing-store `width` and `height` in pixels, CSS `cssWidth` and `cssHeight`, and the `pixelRatio`. For WebGL, update the viewport in this callback, for example `gl.viewport(0, 0, width, height)`.
 
 The draw context provides `deltaTime` (seconds since the previous frame), `elapsedTime` (seconds since attachment), `allPointers`, and `pointersDown`. `allPointers` contains pointers currently over the canvas, including mouse or pen hover; it does not track pointers elsewhere on the page. `pointersDown` contains presses that began on the canvas and have not ended or been cancelled, including while dragged outside it. Pointer positions use canvas backing pixels with `(0, 0)` at the top-left. `onPointerMove` fires for pointers over the canvas and for active canvas-originated drags; `onPointerUp` and `onPointerCancel` only fire for presses that began on the canvas.
 
