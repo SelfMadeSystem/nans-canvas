@@ -34,6 +34,29 @@ export function App() {
         style={{
           position: "relative",
           overflow: "hidden",
+          width: "240vw",
+          height: "120vh",
+          background: "#111",
+        }}
+      >
+        <CanvasEffect
+          effect={scrollEffect}
+          color="deepskyblue"
+          style={{
+            position: "absolute",
+            width: "120vw",
+            height: "120vh",
+            top: "-10vh",
+            left: "-10vw",
+            display: "block",
+          }}
+        />
+      </div>
+      <div
+        className="mt-8"
+        style={{
+          position: "relative",
+          overflow: "hidden",
           height: "450vh",
           background: "#111",
         }}

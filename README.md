@@ -17,7 +17,7 @@ A minimal, framework-agnostic library for building and distributing fancy canvas
 - Interactive capabilities:
   - Handle mouse, pen, and touch input through the Pointer Events API.
 - Scroll-based effects:
-  - Easily create effects that span the entire scrollable area of the page without making the canvas itself as tall as the content.
+  - Track horizontal and vertical page scrolling without making the canvas itself as large as the content.
 
 ## Getting Started
 
@@ -110,7 +110,7 @@ const effect = createCanvasEffect(
   { contextId: "2d", scrollable: true, touchAction: "pan-y" },
   (options: Options) => ({
     draw({ ctx, scroll, scrollDelta }) {
-      // scroll and scrollDelta are Vector2 values in layout pixels.
+      // scroll and scrollDelta are Vector2 values in layout pixels on both axes.
     },
     onScroll(scroll, delta) {
       // Called before draw when the canvas moves within its container.

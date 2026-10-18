@@ -4,7 +4,7 @@ import { mod } from "nans-canvas/utils/mathUtils";
 type Particle = { x: number; y: number; r: number };
 
 export const scrollEffect = createCanvasEffect(
-  { contextId: "2d", scrollable: true },
+  { contextId: "2d", scrollable: true, touchAction: "pan-x pan-y" },
   ({ color }: { color: string }) => {
     const particles: Particle[] = [];
     let seeded = false;
@@ -34,6 +34,19 @@ export const scrollEffect = createCanvasEffect(
         ctx.fillStyle = "white";
         ctx.font = `${12 * dpr}px sans-serif`;
         ctx.lineWidth = 1;
+        const firstColumn = Math.floor(scroll.x / spacing);
+        for (
+          let column = firstColumn;
+          column * spacing - scroll.x < width;
+          column++
+        ) {
+          const x = column * spacing - scroll.x;
+          ctx.beginPath();
+          ctx.moveTo(x, 0);
+          ctx.lineTo(x, height);
+          ctx.stroke();
+          ctx.fillText(`${column * 200}px`, x + 4, 16 * dpr);
+        }
         const first = Math.floor(scroll.y / spacing);
         for (let k = first; k * spacing - scroll.y < height; k++) {
           const y = k * spacing - scroll.y;
@@ -48,7 +61,13 @@ export const scrollEffect = createCanvasEffect(
         ctx.fillStyle = color;
         for (const p of particles) {
           ctx.beginPath();
-          ctx.arc(p.x, mod(p.y - scroll.y, height), p.r * dpr, 0, Math.PI * 2);
+          ctx.arc(
+            mod(p.x - scroll.x, width),
+            mod(p.y - scroll.y, height),
+            p.r * dpr,
+            0,
+            Math.PI * 2,
+          );
           ctx.fill();
         }
 
@@ -56,7 +75,7 @@ export const scrollEffect = createCanvasEffect(
         ctx.fillStyle = "orange";
         ctx.beginPath();
         ctx.arc(
-          width - 60 * dpr,
+          width / 2,
           height / 2 + Math.sin(elapsedTime) * 40 * dpr,
           14 * dpr,
           0,
@@ -71,40 +90,45 @@ export const scrollEffect = createCanvasEffect(
           ctx.fill();
         }
 
-        // Canvas y=0 sits above the viewport, so mark the visible region in canvas coordinates
+        // Mark the visible viewport in canvas coordinates.
         const rect = ctx.canvas.getBoundingClientRect();
+        const viewLeft = Math.max(0, -rect.left * dpr);
+        const viewRight = Math.min(
+          width,
+          (window.innerWidth - rect.left) * dpr,
+        );
         const viewTop = Math.max(0, -rect.top * dpr);
-        const viewBottom = (window.innerHeight - rect.top) * dpr;
+        const viewBottom = Math.min(
+          height,
+          (window.innerHeight - rect.top) * dpr,
+        );
         ctx.strokeStyle = "red";
         ctx.fillStyle = "red";
         ctx.lineWidth = 2 * dpr;
-        ctx.setLineDash([8 * dpr, 6 * dpr]);
-        for (const y of [viewTop + ctx.lineWidth, viewBottom - ctx.lineWidth]) {
-          ctx.beginPath();
-          ctx.moveTo(0, y);
-          ctx.lineTo(width, y);
-          ctx.stroke();
-        }
-        ctx.setLineDash([]);
+        ctx.strokeRect(
+          viewLeft + ctx.lineWidth,
+          viewTop + ctx.lineWidth,
+          viewRight - viewLeft - 2 * ctx.lineWidth,
+          viewBottom - viewTop - 2 * ctx.lineWidth,
+        );
         ctx.font = `${14 * dpr}px sans-serif`;
         ctx.fillText(
-          `viewport top (canvas top is ${(-rect.top).toFixed(0)}px above, y=0 at canvas top)`,
-          16 * dpr,
+          `viewport (${(-rect.left).toFixed(0)}px left, ${(-rect.top).toFixed(0)}px up from canvas origin)`,
+          viewLeft + 16 * dpr,
           viewTop + 24 * dpr,
         );
-        ctx.fillText("viewport bottom", 16 * dpr, viewBottom - 12 * dpr);
 
         ctx.fillStyle = "white";
         ctx.font = `${16 * dpr}px sans-serif`;
         ctx.fillText(
-          `scroll.y: ${scroll.y.toFixed(0)}  delta.y: ${scrollDelta.y.toFixed(1)}  last: ${lastDelta.toFixed(1)}  onScroll calls: ${scrollEvents}`,
-          16 * dpr,
+          `scroll: ${scroll.x.toFixed(0)}, ${scroll.y.toFixed(0)}  delta: ${scrollDelta.x.toFixed(1)}, ${scrollDelta.y.toFixed(1)}  last: ${lastDelta.toFixed(1)}  calls: ${scrollEvents}`,
+          viewLeft + 16 * dpr,
           viewTop + 48 * dpr,
         );
       },
       onScroll(_scroll, delta) {
         scrollEvents++;
-        lastDelta = delta.y;
+        lastDelta = Math.hypot(delta.x, delta.y);
         // for (const p of particles)
         //   p.y -= delta.y * (window.devicePixelRatio || 1);
       },

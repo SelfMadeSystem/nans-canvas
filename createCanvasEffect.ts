@@ -27,9 +27,9 @@ export interface DrawContext<C extends ContextType> {
   allPointers: PointerInfo[];
   /** Presses that began on this canvas and have not ended; positions may be outside the canvas. */
   pointersDown: PointerInfo[];
-  /** Scrollable mode: how far the canvas has moved down its container; zero otherwise. */
+  /** Scrollable mode: how far the canvas has moved within its container; zero otherwise. */
   scroll: Vector2;
-  /** Scrollable mode: movement since the previous frame; zero otherwise. */
+  /** Scrollable mode: movement since the previous frame on each axis; zero otherwise. */
   scrollDelta: Vector2;
 }
 
@@ -281,22 +281,30 @@ export function createCanvasEffect<K extends keyof ContextById, TOptions>(
       const prevWillChange = canvas.style.willChange;
       const prevTransform = canvas.style.transform;
       if (scrollable) canvas.style.willChange = "transform";
+      let scrollX = 0;
       let scrollY = 0;
 
-      const updateScroll = (): number => {
+      const updateScroll = (): Vector2 => {
         const container = (canvas.offsetParent ??
           document.documentElement) as HTMLElement;
         const containerRect = container.getBoundingClientRect();
         // offsetTop/offsetHeight ignore transforms, giving the canvas's rest position
+        const restLeft = canvas.offsetLeft;
+        const maxX = Math.max(
+          0,
+          container.clientWidth - (restLeft + canvas.offsetWidth),
+        );
+        const nextX = Math.min(Math.max(-containerRect.left, 0), maxX);
         const restTop = canvas.offsetTop;
         const maxY = Math.max(
           0,
           container.clientHeight - (restTop + canvas.offsetHeight),
         );
-        const next = Math.min(Math.max(-containerRect.top, 0), maxY);
-        canvas.style.transform = `translateY(${next}px)`;
-        const delta = next - scrollY;
-        scrollY = next;
+        const nextY = Math.min(Math.max(-containerRect.top, 0), maxY);
+        canvas.style.transform = `translate(${nextX}px, ${nextY}px)`;
+        const delta = new Vector2(nextX - scrollX, nextY - scrollY);
+        scrollX = nextX;
+        scrollY = nextY;
         return delta;
       };
 
@@ -305,10 +313,10 @@ export function createCanvasEffect<K extends keyof ContextById, TOptions>(
         const deltaTime = (now - lastTime) / 1000;
         lastTime = now;
 
-        const scrollDeltaY = scrollable ? updateScroll() : 0;
-        const scroll = new Vector2(0, scrollY);
-        const scrollDelta = new Vector2(0, scrollDeltaY);
-        if (scrollDeltaY !== 0) effect.onScroll?.(scroll, scrollDelta);
+        const scrollDelta = scrollable ? updateScroll() : new Vector2(0, 0);
+        const scroll = new Vector2(scrollX, scrollY);
+        if (scrollDelta.x !== 0 || scrollDelta.y !== 0)
+          effect.onScroll?.(scroll, scrollDelta);
 
         effect.draw({
           ctx,
