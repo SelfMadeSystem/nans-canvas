@@ -15,52 +15,86 @@ interface ContextById {
 
 export interface DrawContext<C extends ContextType> {
   ctx: C;
+  /** Time since the previous rendered frame, in seconds. */
   deltaTime: number;
+  /** Time since this effect was attached, in seconds. */
   elapsedTime: number;
-  /** Active pointers, in canvas pixel coordinates (0,0 = top-left) */
+  /** Active pointers, with positions in canvas pixels (origin at the top-left). */
   pointers: PointerInfo[];
-  /** Scrollable mode: how far the canvas has moved down its container (zero otherwise) */
+  /** Scrollable mode: how far the canvas has moved down its container; zero otherwise. */
   scroll: Vector2;
-  /** Scrollable mode: scroll change since the previous frame (zero otherwise) */
+  /** Scrollable mode: movement since the previous frame; zero otherwise. */
   scrollDelta: Vector2;
 }
 
+/** Configuration for creating an effect with a canvas rendering context. */
 export interface CanvasEffectConfig<K extends keyof ContextById> {
+  /** Canvas context to request. */
   contextId: K;
   /**
-   * Keeps the canvas pinned to the viewport via JS (sticky-like, clamped to its container).
-   * The canvas must be `position: absolute` inside a positioned container.
+   * Keeps the canvas pinned to the viewport while scrolling, clamped to its container.
+   * Requires the canvas to be `position: absolute` inside a positioned container.
    */
   scrollable?: boolean;
 }
 
+/** Pointer state reported to input callbacks and included in each draw context. */
 export interface PointerInfo {
+  /** Browser pointer identifier. */
   id: number;
+  /** Position in canvas pixels, with the origin at the top-left. */
   position: Vector2;
+  /** Pointer device type, typically `mouse`, `pen`, or `touch`. */
   type: string;
+  /** Button that changed, as defined by the Pointer Events API. */
   button: number;
+  /** Bitmask of currently pressed buttons. */
   buttons: number;
 }
 
+/** Draw context for a specific canvas rendering context. */
 export type DrawContext2D = DrawContext<CanvasRenderingContext2D>;
+/** Draw context for a WebGL canvas. */
 export type DrawContextWebGL = DrawContext<WebGLRenderingContext>;
+/** Draw context for a WebGL 2 canvas. */
 export type DrawContextWebGL2 = DrawContext<WebGL2RenderingContext>;
+/** Draw context for a WebGPU canvas. */
 export type DrawContextWebGPU = DrawContext<GPUCanvasContext>;
 
+/** An effect that can be attached to a canvas and later detached. */
 export type CanvasEffect<TOptions> = {
+  /**
+   * Initialize the effect on `canvas` using `options`.
+   * Returns a function that stops rendering, removes listeners, and runs effect cleanup.
+   */
   attachTo(canvas: HTMLCanvasElement, options: TOptions): () => void;
 };
 
 type GraphicsHandler<K extends keyof ContextById> = {
+  /** Draw one frame. Called while the canvas is visible. */
   draw: (context: DrawContext<ContextById[K]>) => void;
+  /** Called when a pointer press begins on the canvas. */
   onPointerDown?: (pointer: PointerInfo) => void;
+  /** Called when a pointer press that began on the canvas is released. */
   onPointerUp?: (pointer: PointerInfo) => void;
+  /** Called when a pointer moves, including when it moves outside the canvas. */
   onPointerMove?: (pointer: PointerInfo) => void;
-  /** Scrollable mode: called before draw when the canvas moved relative to its container */
+  /** Scrollable mode: called before draw when the canvas moves within its container. */
   onScroll?: (scroll: Vector2, delta: Vector2) => void;
+  /** Called once when the effect is detached. */
   cleanup?: () => void;
 };
 
+/**
+ * Create a reusable canvas effect.
+ *
+ * The setup callback runs once per attachment and returns drawing and optional input
+ * handlers. The canvas is resized for device pixel ratio, and its draw loop pauses
+ * while it is outside the viewport.
+ *
+ * @param config Canvas context ID, or context ID plus optional scroll behavior.
+ * @param setup Creates the handlers for an attachment from its options.
+ */
 export function createCanvasEffect<K extends keyof ContextById, TOptions>(
   config: K | CanvasEffectConfig<K>,
   setup: (options: TOptions) => GraphicsHandler<K>,
