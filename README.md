@@ -116,6 +116,22 @@ const effect = createCanvasEffect("2d", ({ color }: Options) => ({
 
 Supported context IDs are `"2d"`, `"webgl"`, `"webgl2"`, and `"webgpu"`. The context type in `draw` follows the selected ID. The canvas is sized for the device pixel ratio and resized with `ResizeObserver`. Its animation loop runs while the canvas intersects the viewport and pauses while it is not visible.
 
+Pass `contextAttributes` in the configuration object to customize 2D or WebGL context creation:
+
+```typescript
+const effect = createCanvasEffect(
+  { contextId: "2d", contextAttributes: { alpha: false, desynchronized: true } },
+  setup,
+);
+
+const webglEffect = createCanvasEffect(
+  { contextId: "webgl", contextAttributes: { alpha: false, antialias: false } },
+  setupWebGL,
+);
+```
+
+The attributes are forwarded to `HTMLCanvasElement.getContext` and only apply when the context is first created on that canvas. WebGPU does not accept `getContext` attributes; configure its `GPUCanvasContext` using the WebGPU API instead.
+
 The draw context provides `deltaTime` (seconds since the previous frame), `elapsedTime` (seconds since attachment), `allPointers`, and `pointersDown`. `allPointers` contains pointers currently over the canvas, including mouse or pen hover; it does not track pointers elsewhere on the page. `pointersDown` contains presses that began on the canvas and have not ended or been cancelled, including while dragged outside it. Pointer positions use canvas backing pixels with `(0, 0)` at the top-left. `onPointerMove` fires for pointers over the canvas and for active canvas-originated drags; `onPointerUp` and `onPointerCancel` only fire for presses that began on the canvas.
 
 To enable scroll tracking, pass a configuration object. The canvas must be absolutely positioned inside a positioned container:

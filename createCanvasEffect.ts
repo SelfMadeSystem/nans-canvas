@@ -13,6 +13,13 @@ interface ContextById {
   webgpu: GPUCanvasContext;
 }
 
+type ContextAttributesById = {
+  "2d": CanvasRenderingContext2DSettings;
+  webgl: WebGLContextAttributes;
+  webgl2: WebGLContextAttributes;
+  webgpu: never;
+};
+
 export interface DrawContext<C extends ContextType> {
   ctx: C;
   /** Time since the previous rendered frame, in seconds. */
@@ -33,6 +40,8 @@ export interface DrawContext<C extends ContextType> {
 export interface CanvasEffectConfig<K extends keyof ContextById> {
   /** Canvas context to request. */
   contextId: K;
+  /** Options passed to `getContext`; unavailable for WebGPU. */
+  contextAttributes?: ContextAttributesById[K];
   /**
    * Keeps the canvas pinned to the viewport while scrolling, clamped to its container.
    * Requires the canvas to be `position: absolute` inside a positioned container.
@@ -107,6 +116,7 @@ export function createCanvasEffect<K extends keyof ContextById, TOptions>(
 ): CanvasEffect<TOptions> {
   const {
     contextId,
+    contextAttributes,
     scrollable = false,
     touchAction = "none",
   } = typeof config === "string" ? { contextId: config } : config;
@@ -114,7 +124,11 @@ export function createCanvasEffect<K extends keyof ContextById, TOptions>(
     attachTo(canvas: HTMLCanvasElement, options: TOptions) {
       canvas.width = canvas.clientWidth * (window.devicePixelRatio || 1);
       canvas.height = canvas.clientHeight * (window.devicePixelRatio || 1);
-      const ctx = canvas.getContext(contextId) as ContextById[K];
+      const ctx = (
+        contextId === "webgpu"
+          ? canvas.getContext("webgpu")
+          : canvas.getContext(contextId, contextAttributes)
+      ) as ContextById[K];
       const effect = setup(options);
 
       let animationFrameId: number | undefined;
