@@ -85,6 +85,26 @@ export function round(num: number, amount = 1): number {
 }
 
 /**
+ * Ceil function that rounds to the next multiple of a number
+ * @param a The number to round up
+ * @param multiple The multiple to round up to
+ * @returns The rounded number to the next multiple of the given number
+ */
+export function ceilMultiple(a: number, multiple: number): number {
+  return Math.ceil(a / multiple) * multiple;
+}
+
+/**
+ * Floors a number to the previous multiple of a number
+ * @param a The number to round down
+ * @param multiple The multiple to round down to
+ * @returns The rounded number to the previous multiple of the given number
+ */
+export function floorMultiple(a: number, multiple: number): number {
+  return Math.floor(a / multiple) * multiple;
+}
+
+/**
  * Loops a number between a min and max
  * @param at The number to loop
  * @param min The minimum number to return
@@ -266,13 +286,6 @@ export function gcd(a: number, b: number): number {
  */
 export function approxEquals(a: number, b: number, epsilon = EPSILON): boolean {
   return Math.abs(a - b) < epsilon;
-}
-
-/**
- * Ceil function that rounds to the next multiple of a number
- */
-export function ceilMultiple(a: number, multiple: number): number {
-  return Math.ceil(a / multiple) * multiple;
 }
 
 /**
