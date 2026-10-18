@@ -1,6 +1,6 @@
 import { createCanvasEffect } from "nans-framework";
 
-const vertexSource = `#version 300 es
+const vertexSource = /*glsl*/ `#version 300 es
 const vec2 positions[3] = vec2[3](
   vec2(-1.0, -1.0),
   vec2(3.0, -1.0),
@@ -12,7 +12,7 @@ void main() {
 }
 `;
 
-const fragmentSource = `#version 300 es
+const fragmentSource = /*glsl*/ `#version 300 es
 precision highp float;
 
 uniform vec2 u_resolution;

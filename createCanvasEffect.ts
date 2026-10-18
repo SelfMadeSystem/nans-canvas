@@ -182,27 +182,19 @@ export function createCanvasEffect<K extends keyof ContextById, TOptions>(
       let startTime = performance.now();
       let lastTime = startTime;
 
-      let resizeFrameId: number | undefined;
-      let pendingCssSize: { width: number; height: number } | undefined;
-      const scheduleResize = (width: number, height: number) => {
-        pendingCssSize = { width, height };
-        if (resizeFrameId !== undefined) return;
-        resizeFrameId = requestAnimationFrame(() => {
-          resizeFrameId = undefined;
-          const size = pendingCssSize;
-          pendingCssSize = undefined;
-          if (size) resizeCanvas(size.width, size.height);
-        });
+      const handleResize = (width: number, height: number) => {
+        resizeCanvas(width, height);
+        if (animationFrameId !== undefined) drawFrame(performance.now());
       };
 
       const observer = new ResizeObserver((entries) => {
         const { width, height } = entries[entries.length - 1]!.contentRect;
         cssWidth = width;
         cssHeight = height;
-        scheduleResize(width, height);
+        handleResize(width, height);
       });
       observer.observe(canvas);
-      const handleWindowResize = () => scheduleResize(cssWidth, cssHeight);
+      const handleWindowResize = () => handleResize(cssWidth, cssHeight);
       window.addEventListener("resize", handleWindowResize);
 
       const allPointers = new Map<number, PointerInfo>();
@@ -308,7 +300,7 @@ export function createCanvasEffect<K extends keyof ContextById, TOptions>(
         return delta;
       };
 
-      const render = (now: number) => {
+      const drawFrame = (now: number) => {
         const elapsedTime = (now - startTime) / 1000;
         const deltaTime = (now - lastTime) / 1000;
         lastTime = now;
@@ -327,7 +319,10 @@ export function createCanvasEffect<K extends keyof ContextById, TOptions>(
           scroll,
           scrollDelta,
         });
+      };
 
+      const render = (now: number) => {
+        drawFrame(now);
         animationFrameId = requestAnimationFrame(render);
       };
 
@@ -351,7 +346,6 @@ export function createCanvasEffect<K extends keyof ContextById, TOptions>(
         visibilityObserver.disconnect();
         observer.disconnect();
         window.removeEventListener("resize", handleWindowResize);
-        if (resizeFrameId !== undefined) cancelAnimationFrame(resizeFrameId);
         canvas.removeEventListener("pointerenter", handleEnter);
         canvas.removeEventListener("pointerleave", handleLeave);
         canvas.removeEventListener("pointerdown", handleDown);
