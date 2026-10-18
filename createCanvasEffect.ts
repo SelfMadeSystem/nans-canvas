@@ -302,8 +302,10 @@ export function createCanvasEffect<K extends keyof ContextById, TOptions>(
       if (scrollable) canvas.style.willChange = "transform";
       let scrollX = 0;
       let scrollY = 0;
+      let pendingScrollX = 0;
+      let pendingScrollY = 0;
 
-      const updateScroll = (): CanvasCoordinates => {
+      const updateScroll = () => {
         const container = (canvas.offsetParent ??
           document.documentElement) as HTMLElement;
         const containerRect = container.getBoundingClientRect();
@@ -321,25 +323,37 @@ export function createCanvasEffect<K extends keyof ContextById, TOptions>(
         );
         const nextY = Math.min(Math.max(-containerRect.top, 0), maxY);
         canvas.style.transform = `translate(${nextX}px, ${nextY}px)`;
-        const delta = new Vector2(nextX - scrollX, nextY - scrollY);
+        pendingScrollX += nextX - scrollX;
+        pendingScrollY += nextY - scrollY;
         scrollX = nextX;
         scrollY = nextY;
-        return toCanvasCoordinates(delta);
       };
+
+      const handleWindowScroll = () => {
+        if (scrollable) updateScroll();
+      };
+
+      if (scrollable) {
+        updateScroll();
+        window.addEventListener("scroll", handleWindowScroll, {
+          capture: true,
+          passive: true,
+        });
+      }
 
       const drawFrame = (now: number) => {
         const elapsedTime = (now - startTime) / 1000;
         const deltaTime = (now - lastTime) / 1000;
         lastTime = now;
 
-        const scrollDelta = scrollable
-          ? updateScroll()
-          : toCanvasCoordinates(new Vector2(0, 0));
+        if (scrollable) updateScroll();
+        const scrollDelta = toCanvasCoordinates(
+          new Vector2(pendingScrollX, pendingScrollY),
+        );
+        pendingScrollX = 0;
+        pendingScrollY = 0;
         const scroll = toCanvasCoordinates(new Vector2(scrollX, scrollY));
-        if (
-          scrollDelta.cssPixels.x !== 0 ||
-          scrollDelta.cssPixels.y !== 0
-        )
+        if (scrollDelta.cssPixels.x !== 0 || scrollDelta.cssPixels.y !== 0)
           effect.onScroll?.(scroll, scrollDelta);
 
         effect.draw({
@@ -378,6 +392,8 @@ export function createCanvasEffect<K extends keyof ContextById, TOptions>(
         visibilityObserver.disconnect();
         observer.disconnect();
         window.removeEventListener("resize", handleWindowResize);
+        if (scrollable)
+          window.removeEventListener("scroll", handleWindowScroll, true);
         canvas.removeEventListener("pointerenter", handleEnter);
         canvas.removeEventListener("pointerleave", handleLeave);
         canvas.removeEventListener("pointerdown", handleDown);
