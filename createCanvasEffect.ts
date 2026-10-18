@@ -113,6 +113,10 @@ export type GraphicsHandler<K extends keyof ContextById> = {
   onPointerMove?: (pointer: PointerInfo) => void;
   /** Called after initial sizing and after the canvas backing store changes. */
   onResize?: (size: CanvasSize) => void;
+  /** Called when a WebGL context is lost; the library prevents default to allow restoration. */
+  onContextLost?: K extends "2d" ? never : (event: WebGLContextEvent) => void;
+  /** Called after WebGL resources are invalidated and the context is restored. */
+  onContextRestored?: K extends "2d" ? never : (ctx: ContextById[K]) => void;
   /** Scrollable mode: called before draw when the canvas moves within its container. */
   onScroll?: (scroll: CanvasCoordinates, delta: CanvasCoordinates) => void;
   /** Called once when the effect is detached. */
@@ -189,6 +193,8 @@ export function createCanvasEffect<K extends keyof ContextById, TOptions>(
       let animationFrameId: number | undefined;
       let startTime = performance.now();
       let lastTime = startTime;
+      let isVisible = false;
+      let contextLost = false;
 
       const handleResize = (width: number, height: number) => {
         resizeCanvas(width, height);
@@ -368,17 +374,58 @@ export function createCanvasEffect<K extends keyof ContextById, TOptions>(
       };
 
       const render = (now: number) => {
+        if (!isVisible || contextLost) {
+          animationFrameId = undefined;
+          return;
+        }
         drawFrame(now);
+        if (isVisible && !contextLost)
+          animationFrameId = requestAnimationFrame(render);
+        else animationFrameId = undefined;
+      };
+
+      const startRendering = () => {
+        if (!isVisible || contextLost || animationFrameId !== undefined) return;
+        lastTime = performance.now();
         animationFrameId = requestAnimationFrame(render);
       };
 
+      const webglEffect = effect as unknown as {
+        onContextLost?: (event: WebGLContextEvent) => void;
+        onContextRestored?: (
+          ctx: WebGLRenderingContext | WebGL2RenderingContext,
+        ) => void;
+      };
+
+      const handleContextLost: EventListener = (event) => {
+        const contextEvent = event as WebGLContextEvent;
+        contextEvent.preventDefault();
+        contextLost = true;
+        if (animationFrameId !== undefined)
+          cancelAnimationFrame(animationFrameId);
+        animationFrameId = undefined;
+        webglEffect.onContextLost?.(contextEvent);
+      };
+
+      const handleContextRestored: EventListener = () => {
+        contextLost = false;
+        webglEffect.onContextRestored?.(
+          ctx as WebGLRenderingContext | WebGL2RenderingContext,
+        );
+        effect.onResize?.(canvasSize);
+        startRendering();
+      };
+
+      const isWebGL = contextId !== "2d";
+      if (isWebGL) {
+        canvas.addEventListener("webglcontextlost", handleContextLost);
+        canvas.addEventListener("webglcontextrestored", handleContextRestored);
+      }
+
       const visibilityObserver = new IntersectionObserver((entries) => {
-        const visible = entries[entries.length - 1]!.isIntersecting;
-        if (visible && animationFrameId === undefined) {
-          // Skip the time spent hidden so deltaTime doesn't spike
-          lastTime = performance.now();
-          animationFrameId = requestAnimationFrame(render);
-        } else if (!visible && animationFrameId !== undefined) {
+        isVisible = entries[entries.length - 1]!.isIntersecting;
+        if (isVisible) startRendering();
+        else if (animationFrameId !== undefined) {
           cancelAnimationFrame(animationFrameId);
           animationFrameId = undefined;
         }
@@ -394,6 +441,13 @@ export function createCanvasEffect<K extends keyof ContextById, TOptions>(
         window.removeEventListener("resize", handleWindowResize);
         if (scrollable)
           window.removeEventListener("scroll", handleWindowScroll, true);
+        if (isWebGL) {
+          canvas.removeEventListener("webglcontextlost", handleContextLost);
+          canvas.removeEventListener(
+            "webglcontextrestored",
+            handleContextRestored,
+          );
+        }
         canvas.removeEventListener("pointerenter", handleEnter);
         canvas.removeEventListener("pointerleave", handleLeave);
         canvas.removeEventListener("pointerdown", handleDown);

@@ -362,6 +362,66 @@ test("updates the pinned position while offscreen and keeps deltas for re-entry"
   detach();
 });
 
+test("pauses WebGL drawing on context loss and resumes after restoration", () => {
+  const calls: string[] = [];
+  let setupContext: WebGL2RenderingContext | undefined;
+  let restoredContext: WebGL2RenderingContext | undefined;
+  const effect = createCanvasEffect("webgl2", (_options: undefined, ctx) => {
+    setupContext = ctx;
+    return {
+      draw() {
+        calls.push("draw");
+      },
+      onResize() {
+        calls.push("resize");
+      },
+      onContextLost(event) {
+        calls.push("lost");
+        expect(event.defaultPrevented).toBe(true);
+      },
+      onContextRestored(ctx) {
+        restoredContext = ctx;
+        calls.push("restored");
+      },
+    };
+  });
+  const detach = effect.attachTo(canvas, undefined);
+
+  expect(canvasListeners.has("webglcontextlost")).toBe(true);
+  expect(canvasListeners.has("webglcontextrestored")).toBe(true);
+  triggerIntersection(true);
+  runFrame(1000);
+  expect(calls).toEqual(["resize", "draw"]);
+
+  const lostEvent = new Event("webglcontextlost", { cancelable: true });
+  dispatchCanvasEvent("webglcontextlost", lostEvent);
+  expect(lostEvent.defaultPrevented).toBe(true);
+  expect(calls).toEqual(["resize", "draw", "lost"]);
+  expect(pendingFrames.size).toBe(0);
+
+  dispatchCanvasEvent(
+    "webglcontextrestored",
+    new Event("webglcontextrestored"),
+  );
+  expect(restoredContext).toBe(setupContext);
+  expect(calls).toEqual(["resize", "draw", "lost", "restored", "resize"]);
+  expect(pendingFrames.size).toBe(1);
+
+  runFrame(2000);
+  expect(calls).toEqual([
+    "resize",
+    "draw",
+    "lost",
+    "restored",
+    "resize",
+    "draw",
+  ]);
+
+  detach();
+  expect(canvasListeners.has("webglcontextlost")).toBe(false);
+  expect(canvasListeners.has("webglcontextrestored")).toBe(false);
+});
+
 test("detaches observers, listeners, styles, and effect resources", () => {
   let cleanupCalls = 0;
   const effect = createCanvasEffect(

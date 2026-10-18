@@ -44,48 +44,54 @@ function compileShader(
   return shader;
 }
 
+function createProgram(gl: WebGL2RenderingContext) {
+  const vertexShader = compileShader(gl, gl.VERTEX_SHADER, vertexSource);
+  const fragmentShader = compileShader(gl, gl.FRAGMENT_SHADER, fragmentSource);
+  const program = gl.createProgram();
+  if (!program) throw new Error("Unable to create WebGL2 program");
+
+  gl.attachShader(program, vertexShader);
+  gl.attachShader(program, fragmentShader);
+  gl.linkProgram(program);
+  gl.deleteShader(vertexShader);
+  gl.deleteShader(fragmentShader);
+  if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+    const message = gl.getProgramInfoLog(program) ?? "Unknown program error";
+    gl.deleteProgram(program);
+    throw new Error(message);
+  }
+
+  return {
+    program,
+    resolutionLocation: gl.getUniformLocation(program, "u_resolution"),
+    timeLocation: gl.getUniformLocation(program, "u_time"),
+  };
+}
+
 export const webglEffect = createCanvasEffect(
   {
     contextId: "webgl2",
     contextAttributes: { alpha: false, antialias: true },
   },
   (_options, gl) => {
-    const vertexShader = compileShader(gl, gl.VERTEX_SHADER, vertexSource);
-    const fragmentShader = compileShader(
-      gl,
-      gl.FRAGMENT_SHADER,
-      fragmentSource,
-    );
-    const program = gl.createProgram();
-    if (!program) throw new Error("Unable to create WebGL2 program");
-
-    gl.attachShader(program, vertexShader);
-    gl.attachShader(program, fragmentShader);
-    gl.linkProgram(program);
-    gl.deleteShader(vertexShader);
-    gl.deleteShader(fragmentShader);
-    if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
-      const message = gl.getProgramInfoLog(program) ?? "Unknown program error";
-      gl.deleteProgram(program);
-      throw new Error(message);
-    }
-
-    const resolutionLocation = gl.getUniformLocation(program, "u_resolution");
-    const timeLocation = gl.getUniformLocation(program, "u_time");
+    let resources = createProgram(gl);
 
     return {
       onResize({ width, height }) {
         gl.viewport(0, 0, width, height);
-        gl.useProgram(program);
-        gl.uniform2f(resolutionLocation, width, height);
+        gl.useProgram(resources.program);
+        gl.uniform2f(resources.resolutionLocation, width, height);
+      },
+      onContextRestored(restoredGl) {
+        resources = createProgram(restoredGl);
       },
       draw({ elapsedTime }) {
-        gl.useProgram(program);
-        gl.uniform1f(timeLocation, elapsedTime);
+        gl.useProgram(resources.program);
+        gl.uniform1f(resources.timeLocation, elapsedTime);
         gl.drawArrays(gl.TRIANGLES, 0, 3);
       },
       cleanup() {
-        gl.deleteProgram(program);
+        gl.deleteProgram(resources.program);
       },
     };
   },

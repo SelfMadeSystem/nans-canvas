@@ -75,6 +75,28 @@ These attributes are forwarded to `HTMLCanvasElement.getContext` and only apply 
 
 `onResize` runs after initial sizing and whenever the backing store changes. Its `CanvasSize` value includes backing-store `width` and `height`, CSS `cssWidth` and `cssHeight`, and `pixelRatio`. For WebGL, update the viewport in this callback, for example `gl.viewport(0, 0, width, height)`.
 
+### WebGL context recovery
+
+Browsers can lose a WebGL context temporarily. The library prevents the `webglcontextlost` event's default action so the browser can restore it, and pauses drawing while the context is lost. Provide `onContextLost` for notification and `onContextRestored` to recreate invalid GPU resources. After that callback returns, `onResize` runs again so the viewport can be reset; drawing resumes if the canvas is visible.
+
+```typescript
+const effect = createCanvasEffect("webgl2", (_options: undefined, gl) => {
+  let program = createProgram(gl);
+
+  return {
+    onContextLost() {
+      // The library already calls preventDefault() on the event.
+    },
+    onContextRestored(restoredGl) {
+      program = createProgram(restoredGl);
+    },
+    draw() {
+      gl.useProgram(program);
+    },
+  };
+});
+```
+
 ### Drawing and input
 
 The draw context provides `deltaTime` in seconds since the previous frame and `elapsedTime` in seconds since attachment. Its `allPointers` array contains pointers currently over the canvas, including mouse and pen hover; `pointersDown` contains presses that began on the canvas and have not ended or been cancelled. Both arrays contain `PointerInfo` values whose `position` has `pixels` (canvas backing-store coordinates) and `cssPixels` (CSS coordinates relative to the canvas's top-left).
