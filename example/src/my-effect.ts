@@ -10,7 +10,7 @@ export const myEffect = createCanvasEffect(
     let releases = 0;
 
     return {
-      draw({ ctx, deltaTime, elapsedTime, pointers }) {
+      draw({ ctx, deltaTime, elapsedTime, allPointers, pointersDown }) {
         const { width, height } = ctx.canvas;
         ctx.clearRect(0, 0, width, height);
 
@@ -60,13 +60,12 @@ export const myEffect = createCanvasEffect(
         ctx.fillStyle = "white";
         ctx.lineWidth = 2;
         ctx.beginPath();
-        pointers.forEach(({ position: p }, i) => {
+        allPointers.forEach(({ position: p }, i) => {
           if (i === 0) ctx.moveTo(p.x, p.y);
           else ctx.lineTo(p.x, p.y);
         });
         ctx.stroke();
-        for (const { position: p, buttons } of pointers) {
-          if (buttons === 0) continue; // Skip pointers with no buttons pressed
+        for (const { position: p } of pointersDown) {
           ctx.beginPath();
           ctx.arc(p.x, p.y, 14, 0, Math.PI * 2);
           ctx.fill();
@@ -74,7 +73,7 @@ export const myEffect = createCanvasEffect(
 
         ctx.font = "16px sans-serif";
         ctx.fillText(
-          `pointers: ${pointers.length}  releases: ${releases}  t: ${elapsedTime.toFixed(1)}s`,
+          `pointers: ${allPointers.length}  down: ${pointersDown.length}  releases: ${releases}  t: ${elapsedTime.toFixed(1)}s`,
           10,
           24,
         );

@@ -19,8 +19,10 @@ export interface DrawContext<C extends ContextType> {
   deltaTime: number;
   /** Time since this effect was attached, in seconds. */
   elapsedTime: number;
-  /** Active pointers, with positions in canvas pixels (origin at the top-left). */
-  pointers: PointerInfo[];
+  /** Pointers currently over the canvas, including hover-capable devices. */
+  allPointers: PointerInfo[];
+  /** Presses that began on this canvas and have not ended; positions may be outside the canvas. */
+  pointersDown: PointerInfo[];
   /** Scrollable mode: how far the canvas has moved down its container; zero otherwise. */
   scroll: Vector2;
   /** Scrollable mode: movement since the previous frame; zero otherwise. */
@@ -36,6 +38,8 @@ export interface CanvasEffectConfig<K extends keyof ContextById> {
    * Requires the canvas to be `position: absolute` inside a positioned container.
    */
   scrollable?: boolean;
+  /** CSS touch-action value applied while attached. Defaults to `none`. */
+  touchAction?: string;
 }
 
 /** Pointer state reported to input callbacks and included in each draw context. */
@@ -77,7 +81,9 @@ type GraphicsHandler<K extends keyof ContextById> = {
   onPointerDown?: (pointer: PointerInfo) => void;
   /** Called when a pointer press that began on the canvas is released. */
   onPointerUp?: (pointer: PointerInfo) => void;
-  /** Called when a pointer moves, including when it moves outside the canvas. */
+  /** Called when a pointer press that began on the canvas is cancelled. */
+  onPointerCancel?: (pointer: PointerInfo) => void;
+  /** Called for pointers over the canvas and active presses dragged outside it. */
   onPointerMove?: (pointer: PointerInfo) => void;
   /** Scrollable mode: called before draw when the canvas moves within its container. */
   onScroll?: (scroll: Vector2, delta: Vector2) => void;
@@ -99,8 +105,11 @@ export function createCanvasEffect<K extends keyof ContextById, TOptions>(
   config: K | CanvasEffectConfig<K>,
   setup: (options: TOptions) => GraphicsHandler<K>,
 ): CanvasEffect<TOptions> {
-  const { contextId, scrollable = false } =
-    typeof config === "string" ? { contextId: config } : config;
+  const {
+    contextId,
+    scrollable = false,
+    touchAction = "none",
+  } = typeof config === "string" ? { contextId: config } : config;
   return {
     attachTo(canvas: HTMLCanvasElement, options: TOptions) {
       canvas.width = canvas.clientWidth * (window.devicePixelRatio || 1);
@@ -126,7 +135,8 @@ export function createCanvasEffect<K extends keyof ContextById, TOptions>(
       });
       observer.observe(canvas);
 
-      const pointers = new Map<number, PointerInfo>();
+      const allPointers = new Map<number, PointerInfo>();
+      const pointersDown = new Map<number, PointerInfo>();
 
       const toInfo = (e: PointerEvent): PointerInfo => {
         const rect = canvas.getBoundingClientRect();
@@ -143,36 +153,68 @@ export function createCanvasEffect<K extends keyof ContextById, TOptions>(
         };
       };
 
+      const isOverCanvas = (e: PointerEvent): boolean => {
+        const rect = canvas.getBoundingClientRect();
+        return (
+          e.composedPath().includes(canvas) &&
+          e.clientX >= rect.left &&
+          e.clientX <= rect.right &&
+          e.clientY >= rect.top &&
+          e.clientY <= rect.bottom
+        );
+      };
+
+      const handleEnter = (e: PointerEvent) => {
+        allPointers.set(e.pointerId, toInfo(e));
+      };
       const handleDown = (e: PointerEvent) => {
         const info = toInfo(e);
-        pointers.set(e.pointerId, info);
+        allPointers.set(e.pointerId, info);
+        pointersDown.set(e.pointerId, info);
         effect.onPointerDown?.(info);
       };
       const handleMove = (e: PointerEvent) => {
         const info = toInfo(e);
-        pointers.set(e.pointerId, info);
-        effect.onPointerMove?.(info);
+        const overCanvas = isOverCanvas(e);
+        if (overCanvas) allPointers.set(e.pointerId, info);
+        else allPointers.delete(e.pointerId);
+
+        const pressedOnCanvas = pointersDown.has(e.pointerId);
+        if (pressedOnCanvas) pointersDown.set(e.pointerId, info);
+        if (overCanvas || pressedOnCanvas) effect.onPointerMove?.(info);
       };
       const handleUp = (e: PointerEvent) => {
-        // Only report releases for presses that started on this canvas
-        if (!pointers.has(e.pointerId)) return;
+        if (!pointersDown.has(e.pointerId)) return;
         const info = toInfo(e);
-        if (e.pointerType !== "mouse") pointers.delete(e.pointerId);
-        else pointers.set(e.pointerId, info);
+        pointersDown.delete(e.pointerId);
+        if (e.pointerType !== "touch" && isOverCanvas(e))
+          allPointers.set(e.pointerId, info);
+        else allPointers.delete(e.pointerId);
         effect.onPointerUp?.(info);
       };
+      const handleCancel = (e: PointerEvent) => {
+        if (!pointersDown.has(e.pointerId)) return;
+        const info = toInfo(e);
+        pointersDown.delete(e.pointerId);
+        if (e.pointerType !== "touch" && isOverCanvas(e))
+          allPointers.set(e.pointerId, info);
+        else allPointers.delete(e.pointerId);
+        effect.onPointerCancel?.(info);
+      };
       const handleLeave = (e: PointerEvent) => {
-        if (e.pointerType !== "mouse") pointers.delete(e.pointerId);
+        allPointers.delete(e.pointerId);
       };
 
       // Down is scoped to the canvas so overlaid UI doesn't trigger it;
       // move/up are on window so drags continue outside the canvas.
       const prevTouchAction = canvas.style.touchAction;
-      canvas.style.touchAction = "none";
+      canvas.style.touchAction = touchAction;
+      canvas.addEventListener("pointerenter", handleEnter);
+      canvas.addEventListener("pointerleave", handleLeave);
       canvas.addEventListener("pointerdown", handleDown);
       window.addEventListener("pointermove", handleMove);
       window.addEventListener("pointerup", handleUp);
-      window.addEventListener("pointercancel", handleLeave);
+      window.addEventListener("pointercancel", handleCancel);
 
       const prevWillChange = canvas.style.willChange;
       const prevTransform = canvas.style.transform;
@@ -210,7 +252,8 @@ export function createCanvasEffect<K extends keyof ContextById, TOptions>(
           ctx,
           deltaTime,
           elapsedTime,
-          pointers: [...pointers.values()],
+          allPointers: [...allPointers.values()],
+          pointersDown: [...pointersDown.values()],
           scroll,
           scrollDelta,
         });
@@ -237,10 +280,12 @@ export function createCanvasEffect<K extends keyof ContextById, TOptions>(
           cancelAnimationFrame(animationFrameId);
         visibilityObserver.disconnect();
         observer.disconnect();
+        canvas.removeEventListener("pointerenter", handleEnter);
+        canvas.removeEventListener("pointerleave", handleLeave);
         canvas.removeEventListener("pointerdown", handleDown);
         window.removeEventListener("pointermove", handleMove);
         window.removeEventListener("pointerup", handleUp);
-        window.removeEventListener("pointercancel", handleLeave);
+        window.removeEventListener("pointercancel", handleCancel);
         canvas.style.touchAction = prevTouchAction;
         canvas.style.willChange = prevWillChange;
         canvas.style.transform = prevTransform;

@@ -12,7 +12,7 @@ export const scrollEffect = createCanvasEffect(
     let lastDelta = 0;
 
     return {
-      draw({ ctx, scroll, scrollDelta, pointers, elapsedTime }) {
+      draw({ ctx, scroll, scrollDelta, pointersDown, elapsedTime }) {
         const dpr = window.devicePixelRatio || 1;
         scroll = scroll.mult(dpr);
         const { width, height } = ctx.canvas;
@@ -48,13 +48,7 @@ export const scrollEffect = createCanvasEffect(
         ctx.fillStyle = color;
         for (const p of particles) {
           ctx.beginPath();
-          ctx.arc(
-            p.x,
-            mod(p.y - scroll.y, height),
-            p.r * dpr,
-            0,
-            Math.PI * 2,
-          );
+          ctx.arc(p.x, mod(p.y - scroll.y, height), p.r * dpr, 0, Math.PI * 2);
           ctx.fill();
         }
 
@@ -71,8 +65,7 @@ export const scrollEffect = createCanvasEffect(
         ctx.fill();
 
         ctx.fillStyle = "white";
-        for (const { position: p, buttons } of pointers) {
-          if (buttons === 0) continue;
+        for (const { position: p } of pointersDown) {
           ctx.beginPath();
           ctx.arc(p.x, p.y, 14 * dpr, 0, Math.PI * 2);
           ctx.fill();

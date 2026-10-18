@@ -98,12 +98,12 @@ Svelte example:
 type Options = { color: string };
 
 const effect = createCanvasEffect("2d", ({ color }: Options) => ({
-  draw({ ctx, deltaTime, elapsedTime, pointers }) {
+  draw({ ctx, deltaTime, elapsedTime, allPointers, pointersDown }) {
     ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
     ctx.fillStyle = color;
     ctx.fillRect(0, 0, 40, 40);
     // Use deltaTime and elapsedTime for time-based animation.
-    // Use pointers for active mouse, pen, and touch positions.
+    // allPointers includes hover positions; pointersDown tracks active presses.
   },
   onPointerDown(pointer) {
     console.log(pointer.position.x, pointer.position.y);
@@ -116,13 +116,13 @@ const effect = createCanvasEffect("2d", ({ color }: Options) => ({
 
 Supported context IDs are `"2d"`, `"webgl"`, `"webgl2"`, and `"webgpu"`. The context type in `draw` follows the selected ID. The canvas is sized for the device pixel ratio and resized with `ResizeObserver`. Its animation loop runs while the canvas intersects the viewport and pauses while it is not visible.
 
-The draw context provides `deltaTime` (seconds since the previous frame), `elapsedTime` (seconds since attachment), and active `pointers`. Pointer positions use canvas backing pixels with `(0, 0)` at the top-left. Pointer-down events begin on the canvas; pointer moves and releases are tracked on the window so dragging can continue outside it. Available handlers are `onPointerDown`, `onPointerMove`, and `onPointerUp`.
+The draw context provides `deltaTime` (seconds since the previous frame), `elapsedTime` (seconds since attachment), `allPointers`, and `pointersDown`. `allPointers` contains pointers currently over the canvas, including mouse or pen hover; it does not track pointers elsewhere on the page. `pointersDown` contains presses that began on the canvas and have not ended or been cancelled, including while dragged outside it. Pointer positions use canvas backing pixels with `(0, 0)` at the top-left. `onPointerMove` fires for pointers over the canvas and for active canvas-originated drags; `onPointerUp` and `onPointerCancel` only fire for presses that began on the canvas.
 
 To enable scroll tracking, pass a configuration object. The canvas must be absolutely positioned inside a positioned container:
 
 ```typescript
 const effect = createCanvasEffect(
-  { contextId: "2d", scrollable: true },
+  { contextId: "2d", scrollable: true, touchAction: "pan-y" },
   (options: Options) => ({
     draw({ ctx, scroll, scrollDelta }) {
       // scroll and scrollDelta are Vector2 values in layout pixels.
@@ -135,6 +135,8 @@ const effect = createCanvasEffect(
 ```
 
 `attachTo(canvas, options)` returns a detach function. Call it when the effect is no longer needed; it stops rendering, removes listeners and observers, restores the canvas styles, and invokes `cleanup` if provided.
+
+`touchAction` controls the CSS `touch-action` value while attached. It defaults to `"none"`; set it to a value such as `"pan-y"` or `"auto"` to allow browser touch gestures. The previous inline value is restored when detached.
 
 ## License
 
