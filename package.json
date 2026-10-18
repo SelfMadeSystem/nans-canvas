@@ -2,6 +2,27 @@
   "name": "nans-canvas",
   "version": "0.0.1",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/SelfMadeSystem/nans-canvas.git"
+  },
+  "bugs": {
+    "url": "https://github.com/SelfMadeSystem/nans-canvas/issues"
+  },
+  "homepage": "https://github.com/SelfMadeSystem/nans-canvas#readme",
+  "keywords": [
+    "canvas",
+    "webgl",
+    "webgl2",
+    "2d",
+    "react"
+  ],
+  "author": {
+    "name": "SelfMadeSystem",
+    "email": "npm+nans-canvas@shoghisimon.ca",
+    "url": "https://shoghisimon.ca"
+  },
+  "description": "A reusable canvas effect library for 2D and WebGL contexts.",
   "type": "module",
   "main": "./dist/index.js",
   "module": "./dist/index.js",
