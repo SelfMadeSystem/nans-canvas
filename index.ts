@@ -1,1 +1,1 @@
-export * from "./createCanvasEffect";
+export * from "./createCanvasEffect.js";

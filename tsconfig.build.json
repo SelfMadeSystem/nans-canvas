@@ -1,0 +1,15 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "noEmit": false,
+    "allowImportingTsExtensions": false,
+    "declaration": true,
+    "declarationMap": false,
+    "outDir": "./dist",
+    "rootDir": ".",
+    "types": []
+  },
+  "include": ["index.ts", "createCanvasEffect.ts", "utils/**/*.ts"]
+}

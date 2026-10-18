@@ -1,4 +1,4 @@
-import { clamp, mod, round } from "./mathUtils";
+import { clamp, mod, round } from "./mathUtils.js";
 
 export type VecLike = { x: number; y: number } | [number, number] | number;
 

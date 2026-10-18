@@ -1,4 +1,4 @@
-import { Vector2 } from "./utils/vec";
+import { Vector2 } from "./utils/vec.js";
 
 type ContextType =
   | CanvasRenderingContext2D
