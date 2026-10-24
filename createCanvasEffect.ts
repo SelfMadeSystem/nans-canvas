@@ -68,6 +68,11 @@ export interface CanvasEffectConfig<K extends keyof ContextById> {
   scrollable?: boolean;
   /** CSS touch-action value applied while attached. Defaults to `none`. */
   touchAction?: string;
+  /**
+   * Tracks pointers anywhere on the page instead of only over the canvas.
+   * Positions may fall outside the canvas bounds. Defaults to `false`.
+   */
+  globalPointers?: boolean;
 }
 
 /** Pointer state reported to input callbacks and included in each draw context. */
@@ -142,6 +147,7 @@ export function createCanvasEffect<K extends keyof ContextById, TOptions>(
     contextAttributes,
     scrollable = false,
     touchAction = "none",
+    globalPointers = false,
   } = typeof config === "string" ? { contextId: config } : config;
   return {
     attachTo(canvas: HTMLCanvasElement, options: TOptions) {
@@ -241,6 +247,7 @@ export function createCanvasEffect<K extends keyof ContextById, TOptions>(
       };
 
       const isOverCanvas = (e: PointerEvent): boolean => {
+        if (globalPointers) return true;
         const rect = canvas.getBoundingClientRect();
         return (
           e.composedPath().includes(canvas) &&
@@ -296,9 +303,12 @@ export function createCanvasEffect<K extends keyof ContextById, TOptions>(
       // move/up are on window so drags continue outside the canvas.
       const prevTouchAction = canvas.style.touchAction;
       canvas.style.touchAction = touchAction;
-      canvas.addEventListener("pointerenter", handleEnter);
-      canvas.addEventListener("pointerleave", handleLeave);
-      canvas.addEventListener("pointerdown", handleDown);
+      const pointerTarget: HTMLElement = globalPointers
+        ? document.documentElement
+        : canvas;
+      pointerTarget.addEventListener("pointerenter", handleEnter);
+      pointerTarget.addEventListener("pointerleave", handleLeave);
+      pointerTarget.addEventListener("pointerdown", handleDown);
       window.addEventListener("pointermove", handleMove);
       window.addEventListener("pointerup", handleUp);
       window.addEventListener("pointercancel", handleCancel);
@@ -448,9 +458,9 @@ export function createCanvasEffect<K extends keyof ContextById, TOptions>(
             handleContextRestored,
           );
         }
-        canvas.removeEventListener("pointerenter", handleEnter);
-        canvas.removeEventListener("pointerleave", handleLeave);
-        canvas.removeEventListener("pointerdown", handleDown);
+        pointerTarget.removeEventListener("pointerenter", handleEnter);
+        pointerTarget.removeEventListener("pointerleave", handleLeave);
+        pointerTarget.removeEventListener("pointerdown", handleDown);
         window.removeEventListener("pointermove", handleMove);
         window.removeEventListener("pointerup", handleUp);
         window.removeEventListener("pointercancel", handleCancel);

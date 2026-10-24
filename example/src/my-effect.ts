@@ -3,7 +3,7 @@ import { createCanvasEffect } from "nans-canvas";
 type Ripple = { x: number; y: number; age: number; color: string };
 
 export const myEffect = createCanvasEffect(
-  "2d",
+  { contextId: "2d", globalPointers: true },
   ({ color }: { color: string }) => {
     const ripples: Ripple[] = [];
     const trail: { x: number; y: number; age: number }[] = [];

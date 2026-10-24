@@ -9,15 +9,15 @@
     "preview": "vite preview --host 0.0.0.0"
   },
   "dependencies": {
-    "nans-canvas": "..",
+    "nans-canvas": "file:..",
     "react": "^19",
     "react-dom": "^19"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.1.11",
-    "@vitejs/plugin-react": "latest",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@vitejs/plugin-react": "latest",
     "tailwindcss": "^4.1.11",
     "typescript": "^7.0.2",
     "vite": "latest"
