@@ -66,10 +66,12 @@ export class Vector2 {
     return Vector2.fromAngle(angle);
   }
 
-  static randomRange(min: number, max: number): Vector2 {
+  static randomRange(min: VecLike, max: VecLike): Vector2 {
+    const minV = normVecLike(min);
+    const maxV = normVecLike(max);
     return new Vector2(
-      random(min, max),
-      random(min, max)
+      random(minV.x, maxV.x),
+      random(minV.y, maxV.y)
     );
   }
 
