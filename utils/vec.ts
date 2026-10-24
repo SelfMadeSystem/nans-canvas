@@ -1,4 +1,4 @@
-import { clamp, mod, round } from "./mathUtils.js";
+import { clamp, mod, random, round, wrapNumber } from "./mathUtils.js";
 
 export type VecLike = { x: number; y: number } | [number, number] | number;
 
@@ -57,6 +57,22 @@ export class Vector2 {
     );
   }
 
+  static random(): Vector2 {
+    return new Vector2(Math.random(), Math.random());
+  }
+
+  static randomDirection(): Vector2 {
+    const angle = Math.random() * 2 * Math.PI;
+    return Vector2.fromAngle(angle);
+  }
+
+  static randomRange(min: number, max: number): Vector2 {
+    return new Vector2(
+      random(min, max),
+      random(min, max)
+    );
+  }
+
   add(other: VecLike): Vector2 {
     const o = normVecLike(other);
     return new Vector2(this.x + o.x, this.y + o.y);
@@ -86,6 +102,30 @@ export class Vector2 {
   mod(other: VecLike): Vector2 {
     const o = normVecLike(other);
     return new Vector2(mod(this.x, o.x), mod(this.y, o.y));
+  }
+
+  wrap(min: VecLike, max: VecLike): Vector2;
+  wrap(minX: number, maxX: number, minY: number, maxY: number): Vector2;
+  wrap(...args:
+      [VecLike, VecLike] |
+      [number, number, number, number]
+  ) : Vector2 {
+    if (args.length === 2) {
+      const [min, max] = args;
+      const minV = normVecLike(min);
+      const maxV = normVecLike(max);
+      return new Vector2(
+        wrapNumber(this.x, minV.x, maxV.x),
+        wrapNumber(this.y, minV.y, maxV.y)
+      );
+    } else if (args.length === 4) {
+      const [minX, maxX, minY, maxY] = args;
+      return new Vector2(
+        wrapNumber(this.x, minX, maxX),
+        wrapNumber(this.y, minY, maxY)
+      );
+    }
+    throw new Error("Invalid arguments for wrap");
   }
 
   directionTo(other: VecLike): Vector2 {
