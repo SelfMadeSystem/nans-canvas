@@ -8,6 +8,9 @@
 
 export const EPSILON = 1e-6;
 
+export const DEG2RAD = Math.PI / 180;
+export const RAD2DEG = 180 / Math.PI;
+
 /**
  * Modulo function that always returns a positive number
  * @param a The number to be modulated
@@ -140,10 +143,14 @@ export function wrapAnglePI(angle: number): number {
   return wrapNumber(angle, -Math.PI, Math.PI);
 }
 
+/**
+ * Calculates the difference between two angles, taking into account wrapping.
+ * @param angle1 The first angle
+ * @param angle2 The second angle
+ * @returns The difference between the two angles in the range [-PI, PI]
+ */
 export function angleDelta(angle1: number, angle2: number): number {
-  let delta = angle2 - angle1;
-  delta = ((delta + Math.PI) % (2 * Math.PI)) - Math.PI;
-  return delta;
+  return wrapAngle(angle2 - angle1);
 }
 
 /**
